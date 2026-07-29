@@ -1,0 +1,43 @@
+# The dashboard is a read-only aggregation layer over other apps' models.
+# AiInsight and Alert are kept as lightweight models so ops staff can post
+# live alerts/insights that show up on the command centre without redeploying.
+from django.db import models
+
+
+class Alert(models.Model):
+    class Severity(models.TextChoices):
+        HIGH = "high", "High"
+        MEDIUM = "medium", "Medium"
+        LOW = "low", "Low"
+
+    alert_code = models.CharField(max_length=20, unique=True, editable=False)
+    severity = models.CharField(max_length=20, choices=Severity.choices)
+    category = models.CharField(max_length=100)
+    description = models.CharField(max_length=255)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def save(self, *args, **kwargs):
+        if not self.alert_code:
+            last = Alert.objects.order_by("-id").first()
+            next_id = (last.id + 1) if last else 1
+            self.alert_code = f"ALT-{2200 + next_id}"
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.alert_code
+
+
+class AiInsight(models.Model):
+    title = models.CharField(max_length=200)
+    detail = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return self.title
