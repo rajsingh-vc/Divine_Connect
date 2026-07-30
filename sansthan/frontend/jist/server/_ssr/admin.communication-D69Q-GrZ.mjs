@@ -1,5 +1,5 @@
 import { d as require_jsx_runtime } from "../_libs/@radix-ui/react-alert-dialog+[...].mjs";
-import { M as MessageSquare, N as Mail, O as Phone, T as Plus, b as Send } from "../_libs/lucide-react.mjs";
+import { A as Plus, L as MessageSquare, N as Phone, w as Send, z as Mail } from "../_libs/lucide-react.mjs";
 import { n as PageHeader, t as ChartCard } from "./chart-card-Cwq4vD8L.mjs";
 import { t as StatCard } from "./stat-card-Bp146Jdr.mjs";
 //#region node_modules/.nitro/vite/services/ssr/assets/admin.communication-D69Q-GrZ.js

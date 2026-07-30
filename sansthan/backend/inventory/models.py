@@ -12,6 +12,8 @@ class InventoryItem(models.Model):
     stock = models.PositiveIntegerField(default=0)
     min_threshold = models.PositiveIntegerField(default=0)
     unit = models.CharField(max_length=30, default="pcs")
+    dispatched_today = models.PositiveIntegerField(default=0)
+    open_purchase_orders = models.PositiveIntegerField(default=0)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:

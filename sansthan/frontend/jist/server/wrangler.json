@@ -1,11 +1,11 @@
 {
-  "compatibility_date": "2026-07-28",
+  "compatibility_date": "2026-07-30",
   "main": "index.mjs",
   "assets": {
     "binding": "ASSETS",
     "directory": "..\\public"
   },
-  "name": "rajsingh-vc-be-divine-connect-sansthan-frontend",
+  "name": "rajsingh-vc-divine-connect-sansthan-frontend",
   "compatibility_flags": [
     "nodejs_compat"
   ],

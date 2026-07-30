@@ -1,9 +1,22 @@
 from rest_framework.routers import DefaultRouter
 
-from .views import ContentPageViewSet, AnnouncementViewSet
+from .models import TempleInfo
+
+from .views import (
+    ContentPageViewSet,
+    AnnouncementViewSet,
+    GalleryItemViewSet,
+    FAQViewSet,
+    TempleInfoViewSet,
+)
+from .views import NewsPostViewSet
 
 router = DefaultRouter()
 router.register(r"pages", ContentPageViewSet, basename="content-page")
 router.register(r"announcements", AnnouncementViewSet, basename="announcement")
+router.register(r"gallery", GalleryItemViewSet, basename="gallery")
+router.register(r"faqs", FAQViewSet, basename="faq")
+router.register(r"news", NewsPostViewSet, basename="news")
+router.register(r"temple-info", TempleInfoViewSet, basename="temple-info")
 
 urlpatterns = router.urls

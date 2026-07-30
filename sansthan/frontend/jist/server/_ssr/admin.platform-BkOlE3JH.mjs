@@ -1,5 +1,5 @@
 import { d as require_jsx_runtime } from "../_libs/@radix-ui/react-alert-dialog+[...].mjs";
-import { g as Shield, i as Users, v as Settings, y as Server } from "../_libs/lucide-react.mjs";
+import { C as Server, S as Settings, i as Users, y as Shield } from "../_libs/lucide-react.mjs";
 import { n as PageHeader, t as ChartCard } from "./chart-card-Cwq4vD8L.mjs";
 import { t as StatCard } from "./stat-card-Bp146Jdr.mjs";
 //#region node_modules/.nitro/vite/services/ssr/assets/admin.platform-BkOlE3JH.js

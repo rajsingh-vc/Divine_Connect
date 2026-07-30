@@ -1,5 +1,5 @@
 import { d as require_jsx_runtime } from "../_libs/@radix-ui/react-alert-dialog+[...].mjs";
-import { it as ChevronLeft, rt as ChevronRight } from "../_libs/lucide-react.mjs";
+import { dt as ChevronLeft, ut as ChevronRight } from "../_libs/lucide-react.mjs";
 //#region node_modules/.nitro/vite/services/ssr/assets/pagination-bar-CPhYdbuc.js
 var import_jsx_runtime = require_jsx_runtime();
 /** Simple prev/next pager driven by DRF's {count, page_size} pagination. */

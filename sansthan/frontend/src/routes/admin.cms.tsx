@@ -4,6 +4,13 @@ import {
   Image, FileText, Newspaper, Video, HelpCircle, Search, Bell,
 } from "lucide-react";
 import { AnnouncementComposer } from "@/components/cms/announcement-composer";
+import { TempleInfoPanel } from "@/components/cms/temple-info";
+import { GalleryPanel } from "@/components/cms/gallery-panel";
+import { FAQPanel } from "@/components/cms/faq-panel";
+import { NewsPanel } from "@/components/cms/news-panel";
+import { useGalleryItems } from "@/hooks/use-gallery-items";
+import { useFaqItems } from "@/hooks/use-faq-items";
+import { useNewsPosts } from "@/hooks/use-news-posts";
 
 export const Route = createFileRoute("/admin/cms")({
   head: () => ({ meta: [{ title: "Content Management System — Sansthan Console" }] }),
@@ -23,23 +30,79 @@ interface Module {
 function CmsDashboard() {
   const [tab, setTab] = useState<TabKey>("modules");
   const [composerOpen, setComposerOpen] = useState(false);
+  const [templeInfoOpen, setTempleInfoOpen] = useState(false);
+  const [galleryOpen, setGalleryOpen] = useState(false);
+  const [faqOpen, setFaqOpen] = useState(false);
+  const [newsOpen, setNewsOpen] = useState(false);
 
+  const {
+    items: galleryItems,
+    isLoading: galleryLoading,
+    error: galleryError,
+    addItem: addGalleryItem,
+    removeItems: removeGalleryItems,
+  } = useGalleryItems();
+
+  const {
+    items: faqItems,
+    isLoading: faqLoading,
+    error: faqError,
+    addItem: addFaqItem,
+    updateItem: updateFaqItem,
+    removeItems: removeFaqItems,
+  } = useFaqItems();
+
+  const {
+    items: newsItems,
+    isLoading: newsLoading,
+    error: newsError,
+    addItem: addNewsItem,
+    updateItem: updateNewsItem,
+    removeItems: removeNewsItems,
+  } = useNewsPosts();
+
+  // ✅ FAQ stat card removed – News & Blogs is now dynamic off newsItems.length
   const stats = [
     { label: "Hero Banner", value: 3, icon: Image },
-    { label: "Temple Info", value: 12, icon: FileText },
-    { label: "News & Blogs", value: 48, icon: Newspaper },
-    { label: "Gallery", value: 1240, icon: Image },
+    { label: "Temple Info", value: 1, icon: FileText },
+    { label: "News & Blogs", value: newsItems.length, icon: Newspaper },
+    { label: "Gallery", value: galleryItems.length, icon: Image },
+    // FAQ stat card is removed – no longer appears in the top row
   ];
 
   const modules: Module[] = [
     { key: "hero", label: "Hero Banner", count: 3, icon: Image, onManage: () => {} },
-    { key: "temple-info", label: "Temple Info", count: 12, icon: FileText, onManage: () => {} },
-    { key: "news", label: "News & Blogs", count: 48, icon: Newspaper, onManage: () => {} },
-    { key: "gallery", label: "Gallery", count: 1240, icon: Image, onManage: () => {} },
+    {
+      key: "temple-info",
+      label: "Temple Info",
+      count: 1,
+      icon: FileText,
+      onManage: () => setTempleInfoOpen(true),
+    },
+    {
+      key: "news",
+      label: "News & Blogs",
+      count: newsItems.length,
+      icon: Newspaper,
+      onManage: () => setNewsOpen(true),
+    },
+    {
+      key: "gallery",
+      label: "Gallery",
+      count: galleryItems.length,
+      icon: Image,
+      onManage: () => setGalleryOpen(true),
+    },
     { key: "videos", label: "Videos", count: 82, icon: Video, onManage: () => {} },
-    { key: "faqs", label: "FAQs", count: 24, icon: HelpCircle, onManage: () => {} },
+    {
+      key: "faqs",
+      label: "FAQs",
+      count: faqItems.length,  // ✅ stays dynamic
+      icon: HelpCircle,
+      onManage: () => setFaqOpen(true),
+    },
     { key: "seo", label: "SEO", count: 16, icon: Search, onManage: () => {} },
-    { key: "notifications", label: "Notification Templates", count: 22, icon: Bell, onManage: () => setComposerOpen(true) },
+    { key: "notifications", label: "Notification", count: 22, icon: Bell, onManage: () => setComposerOpen(true) },
   ];
 
   return (
@@ -48,11 +111,11 @@ function CmsDashboard() {
       <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-600">Content</p>
       <h1 className="mt-1 font-serif text-4xl font-semibold text-foreground">Content Management System</h1>
       <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-        Manage everything a devotee sees — home, media, news, gallery, SEO, notification templates.
+        Manage everything a devotee sees — home, media, news, gallery, SEO, notification.
       </p>
       <div className="mt-6 border-b border-border" />
 
-      {/* Stat cards */}
+      {/* Stat cards – now only 4 */}
       <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
         {stats.map((s) => (
           <div key={s.label} className="rounded-2xl border border-border bg-white p-5 shadow-sm">
@@ -82,7 +145,7 @@ function CmsDashboard() {
         ))}
       </div>
 
-      {/* Module grid */}
+      {/* Module grid – FAQ module card is still here, dynamic */}
       {tab === "modules" && (
         <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {modules.map((m) => (
@@ -103,9 +166,17 @@ function CmsDashboard() {
         </div>
       )}
 
+      {/* News tab now opens the same NewsPanel used by the module card,
+          instead of a static placeholder. */}
       {tab === "news" && (
         <div className="mt-6 rounded-2xl border border-border bg-white p-8 text-center text-sm text-muted-foreground">
-          News & blogs management coming here.
+          <p>{newsItems.length} post{newsItems.length === 1 ? "" : "s"} in News & Blogs.</p>
+          <button
+            onClick={() => setNewsOpen(true)}
+            className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-foreground px-4 py-2 text-sm font-medium text-background hover:opacity-90"
+          >
+            Manage News & Blogs
+          </button>
         </div>
       )}
 
@@ -116,6 +187,36 @@ function CmsDashboard() {
       )}
 
       <AnnouncementComposer open={composerOpen} onClose={() => setComposerOpen(false)} />
+      <TempleInfoPanel open={templeInfoOpen} onClose={() => setTempleInfoOpen(false)} />
+      <GalleryPanel
+        open={galleryOpen}
+        onClose={() => setGalleryOpen(false)}
+        items={galleryItems}
+        isLoading={galleryLoading}
+        error={galleryError}
+        addItem={addGalleryItem}
+        removeItems={removeGalleryItems}
+      />
+      <FAQPanel
+        open={faqOpen}
+        onClose={() => setFaqOpen(false)}
+        items={faqItems}
+        isLoading={faqLoading}
+        error={faqError}
+        addItem={addFaqItem}
+        updateItem={updateFaqItem}
+        removeItems={removeFaqItems}
+      />
+      <NewsPanel
+        open={newsOpen}
+        onClose={() => setNewsOpen(false)}
+        items={newsItems}
+        isLoading={newsLoading}
+        error={newsError}
+        addItem={addNewsItem}
+        updateItem={updateNewsItem}
+        removeItems={removeNewsItems}
+      />
     </div>
   );
 }

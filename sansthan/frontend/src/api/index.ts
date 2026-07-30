@@ -2,6 +2,7 @@ import { api, unwrap } from "@/lib/api";
 import { formatINR, statusLabel, formatTime, titleCase } from "@/lib/format";
 
 export * from "./dashboard";
+export * from "./inventory";
 
 // ---------------------------------------------------------------------------
 // Bookings
@@ -285,21 +286,6 @@ export async function getVisitors() {
     zone: v.zone,
     party: v.party_size,
     status: statusLabel(v.status),
-  }));
-}
-
-// ---------------------------------------------------------------------------
-// Inventory
-// ---------------------------------------------------------------------------
-export async function getInventory() {
-  const { data } = await api.get("/inventory/");
-  return unwrap<any>(data).map((i) => ({
-    sku: i.sku,
-    _id: i.id,
-    item: i.item_name,
-    stock: i.stock,
-    min: i.min_threshold,
-    status: statusLabel(i.status),
   }));
 }
 

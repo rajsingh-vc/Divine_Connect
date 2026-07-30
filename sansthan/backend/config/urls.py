@@ -10,6 +10,7 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
 from payments.views import health_check
+
 urlpatterns = [
     path("admin/", admin.site.urls),
 
@@ -32,7 +33,7 @@ urlpatterns = [
     path("api/communication/", include("communication.urls")),
     path("api/platform-admin/", include("platform_admin.urls")),
     path("api/tasks/", include("tasks.urls")),
-     path("payments/", include("payments.urls")),
+    path("payments/", include("payments.urls")),
 ]
 
 if settings.DEBUG:

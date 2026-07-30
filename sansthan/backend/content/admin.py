@@ -1,7 +1,11 @@
 from django.contrib import admin
 
 from .models import ContentPage, Announcement
+from .models import ContentPage, Announcement, GalleryItem
 
+from django.contrib import admin
+from .models import TempleInfo
+from .models import NewsPost
 
 @admin.register(ContentPage)
 class ContentPageAdmin(admin.ModelAdmin):
@@ -16,3 +20,29 @@ class AnnouncementAdmin(admin.ModelAdmin):
     list_filter = ("type",)
     search_fields = ("title", "description")
     readonly_fields = ("sent_at",)
+
+
+
+
+@admin.register(GalleryItem)
+class GalleryItemAdmin(admin.ModelAdmin):
+    list_display = ("title", "media_type", "year", "uploaded_by", "created_at")
+    list_filter = ("media_type", "year")
+    search_fields = ("title", "description")
+    readonly_fields = ("created_at",)
+
+
+
+
+
+@admin.register(NewsPost)
+class NewsPostAdmin(admin.ModelAdmin):
+    list_display = ("title", "status", "author", "created_at")
+    list_filter = ("status",)
+    search_fields = ("title", "content")
+    prepopulated_fields = {"slug": ("title",)}
+
+
+@admin.register(TempleInfo)
+class TempleInfoAdmin(admin.ModelAdmin):
+    list_display = ("name", "updated_at")

@@ -12,6 +12,10 @@ from decouple import Csv, config
  
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env") 
+
+
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
 # ---------------------------------------------------------------------------
 # Core
 # ---------------------------------------------------------------------------
