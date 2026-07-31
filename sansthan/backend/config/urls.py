@@ -33,6 +33,8 @@ urlpatterns = [
     path("api/communication/", include("communication.urls")),
     path("api/platform-admin/", include("platform_admin.urls")),
     path("api/tasks/", include("tasks.urls")),
+    path("api/incidents/", include("incidents.urls")),
+     path("api/sos/", include("sos.urls")),
     path("payments/", include("payments.urls")),
 ]
 

@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import AiInsight, Alert
+from .models import Alert, LiveFestivalInfo
 
 admin.site.register(Alert)
-admin.site.register(AiInsight)
+admin.site.register(LiveFestivalInfo)

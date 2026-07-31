@@ -12,8 +12,9 @@ from events.models import Event, Visitor
 from inventory.models import InventoryItem
 from volunteers.models import Volunteer
 
-from .models import AiInsight, Alert
-from .serializers import AiInsightSerializer, AlertSerializer
+from .models import Alert, LiveFestivalInfo
+from .permissions import IsAdminOrReadOnly
+from .serializers import AlertSerializer, LiveFestivalInfoSerializer
 
 
 class AlertViewSet(viewsets.ModelViewSet):
@@ -21,9 +22,22 @@ class AlertViewSet(viewsets.ModelViewSet):
     serializer_class = AlertSerializer
 
 
-class AiInsightViewSet(viewsets.ModelViewSet):
-    queryset = AiInsight.objects.all()
-    serializer_class = AiInsightSerializer
+class LiveFestivalInfoViewSet(viewsets.ModelViewSet):
+    """CRUD API for the Command Dashboard's "Live Festival Info" widget.
+
+    GET (list/retrieve): any authenticated user (admin, volunteer, devotee).
+    POST/PUT/PATCH/DELETE: admins only — see IsAdminOrReadOnly.
+    """
+
+    queryset = LiveFestivalInfo.objects.all()
+    serializer_class = LiveFestivalInfoSerializer
+    permission_classes = [IsAdminOrReadOnly]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if self.request.query_params.get("active_only") == "true":
+            qs = qs.filter(is_active=True)
+        return qs
 
 
 @api_view(["GET"])

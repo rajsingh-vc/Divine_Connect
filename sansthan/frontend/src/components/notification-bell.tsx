@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bell, AlertTriangle, Info, CheckCircle2, UserPlus, Clock } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
+import { Bell, AlertTriangle, Info, CheckCircle2, UserPlus, Clock, Siren, MessageSquareText } from "lucide-react";
 import {
   getNotifications,
   getUnreadCount,
@@ -19,6 +20,10 @@ function iconFor(type: NotificationType) {
       return <CheckCircle2 className="h-4 w-4 text-emerald-600" />;
     case "new_volunteer_application":
       return <UserPlus className="h-4 w-4 text-blue-600" />;
+    case "incident_reported":
+      return <Siren className="h-4 w-4 text-rose-600" />;
+    case "incident_response":
+      return <MessageSquareText className="h-4 w-4 text-emerald-600" />;
     case "volunteer_approval_required":
     default:
       return <Clock className="h-4 w-4 text-orange-600" />;
@@ -40,6 +45,7 @@ export function NotificationBell() {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const unread = useQuery({
     queryKey: ["volunteerUnreadCount"],
@@ -75,6 +81,10 @@ export function NotificationBell() {
 
   function handleItemClick(n: VolunteerNotification) {
     if (!n.is_read) markRead.mutate(n.id);
+    if (n.type === "incident_reported" || n.type === "incident_response") {
+      setOpen(false);
+      navigate({ to: "/admin/command" });
+    }
   }
 
   return (

@@ -24,6 +24,7 @@ import { Route as AdminCommandRouteImport } from './routes/admin.command'
 import { Route as AdminCommunicationRouteImport } from './routes/admin.communication'
 import { Route as AdminDevoteesRouteImport } from './routes/admin.devotees'
 import { Route as AdminDonationsRouteImport } from './routes/admin.donations'
+import { Route as AdminDutiesRouteImport } from './routes/admin.duties'
 import { Route as AdminEventsRouteImport } from './routes/admin.events'
 import { Route as AdminInventoryRouteImport } from './routes/admin.inventory'
 import { Route as AdminPlatformRouteImport } from './routes/admin.platform'
@@ -33,6 +34,7 @@ import { Route as AdminTasksRouteImport } from './routes/admin.tasks'
 import { Route as AdminVisitorsRouteImport } from './routes/admin.visitors'
 import { Route as AdminVolunteerApprovalsRouteImport } from './routes/admin.volunteer-approvals'
 import { Route as AdminVolunteersRouteImport } from './routes/admin.volunteers'
+import { Route as VolunteerDutiesRouteImport } from './routes/volunteer.duties'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -109,6 +111,11 @@ const AdminDonationsRoute = AdminDonationsRouteImport.update({
   path: '/donations',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminDutiesRoute = AdminDutiesRouteImport.update({
+  id: '/duties',
+  path: '/duties',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminEventsRoute = AdminEventsRouteImport.update({
   id: '/events',
   path: '/events',
@@ -154,6 +161,11 @@ const AdminVolunteersRoute = AdminVolunteersRouteImport.update({
   path: '/volunteers',
   getParentRoute: () => AdminRoute,
 } as any)
+const VolunteerDutiesRoute = VolunteerDutiesRouteImport.update({
+  id: '/volunteer/duties',
+  path: '/volunteer/duties',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -170,6 +182,7 @@ export interface FileRoutesByFullPath {
   '/admin/communication': typeof AdminCommunicationRoute
   '/admin/devotees': typeof AdminDevoteesRoute
   '/admin/donations': typeof AdminDonationsRoute
+  '/admin/duties': typeof AdminDutiesRoute
   '/admin/events': typeof AdminEventsRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/platform': typeof AdminPlatformRoute
@@ -179,6 +192,7 @@ export interface FileRoutesByFullPath {
   '/admin/visitors': typeof AdminVisitorsRoute
   '/admin/volunteer-approvals': typeof AdminVolunteerApprovalsRoute
   '/admin/volunteers': typeof AdminVolunteersRoute
+  '/volunteer/duties': typeof VolunteerDutiesRoute
   '/admin/': typeof AdminIndexRoute
 }
 export interface FileRoutesByTo {
@@ -195,6 +209,7 @@ export interface FileRoutesByTo {
   '/admin/communication': typeof AdminCommunicationRoute
   '/admin/devotees': typeof AdminDevoteesRoute
   '/admin/donations': typeof AdminDonationsRoute
+  '/admin/duties': typeof AdminDutiesRoute
   '/admin/events': typeof AdminEventsRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/platform': typeof AdminPlatformRoute
@@ -204,6 +219,7 @@ export interface FileRoutesByTo {
   '/admin/visitors': typeof AdminVisitorsRoute
   '/admin/volunteer-approvals': typeof AdminVolunteerApprovalsRoute
   '/admin/volunteers': typeof AdminVolunteersRoute
+  '/volunteer/duties': typeof VolunteerDutiesRoute
   '/admin': typeof AdminIndexRoute
 }
 export interface FileRoutesById {
@@ -222,6 +238,7 @@ export interface FileRoutesById {
   '/admin/communication': typeof AdminCommunicationRoute
   '/admin/devotees': typeof AdminDevoteesRoute
   '/admin/donations': typeof AdminDonationsRoute
+  '/admin/duties': typeof AdminDutiesRoute
   '/admin/events': typeof AdminEventsRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/platform': typeof AdminPlatformRoute
@@ -231,6 +248,7 @@ export interface FileRoutesById {
   '/admin/visitors': typeof AdminVisitorsRoute
   '/admin/volunteer-approvals': typeof AdminVolunteerApprovalsRoute
   '/admin/volunteers': typeof AdminVolunteersRoute
+  '/volunteer/duties': typeof VolunteerDutiesRoute
   '/admin/': typeof AdminIndexRoute
 }
 export interface FileRouteTypes {
@@ -250,6 +268,7 @@ export interface FileRouteTypes {
     | '/admin/communication'
     | '/admin/devotees'
     | '/admin/donations'
+    | '/admin/duties'
     | '/admin/events'
     | '/admin/inventory'
     | '/admin/platform'
@@ -259,6 +278,7 @@ export interface FileRouteTypes {
     | '/admin/visitors'
     | '/admin/volunteer-approvals'
     | '/admin/volunteers'
+    | '/volunteer/duties'
     | '/admin/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -275,6 +295,7 @@ export interface FileRouteTypes {
     | '/admin/communication'
     | '/admin/devotees'
     | '/admin/donations'
+    | '/admin/duties'
     | '/admin/events'
     | '/admin/inventory'
     | '/admin/platform'
@@ -284,6 +305,7 @@ export interface FileRouteTypes {
     | '/admin/visitors'
     | '/admin/volunteer-approvals'
     | '/admin/volunteers'
+    | '/volunteer/duties'
     | '/admin'
   id:
     | '__root__'
@@ -301,6 +323,7 @@ export interface FileRouteTypes {
     | '/admin/communication'
     | '/admin/devotees'
     | '/admin/donations'
+    | '/admin/duties'
     | '/admin/events'
     | '/admin/inventory'
     | '/admin/platform'
@@ -310,6 +333,7 @@ export interface FileRouteTypes {
     | '/admin/visitors'
     | '/admin/volunteer-approvals'
     | '/admin/volunteers'
+    | '/volunteer/duties'
     | '/admin/'
   fileRoutesById: FileRoutesById
 }
@@ -321,6 +345,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   SignupRoute: typeof SignupRoute
   VolunteerSignupRoute: typeof VolunteerSignupRoute
+  VolunteerDutiesRoute: typeof VolunteerDutiesRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -430,6 +455,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminDonationsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/duties': {
+      id: '/admin/duties'
+      path: '/duties'
+      fullPath: '/admin/duties'
+      preLoaderRoute: typeof AdminDutiesRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/events': {
       id: '/admin/events'
       path: '/events'
@@ -493,6 +525,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminVolunteersRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/volunteer/duties': {
+      id: '/volunteer/duties'
+      path: '/volunteer/duties'
+      fullPath: '/volunteer/duties'
+      preLoaderRoute: typeof VolunteerDutiesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -504,6 +543,7 @@ interface AdminRouteChildren {
   AdminCommunicationRoute: typeof AdminCommunicationRoute
   AdminDevoteesRoute: typeof AdminDevoteesRoute
   AdminDonationsRoute: typeof AdminDonationsRoute
+  AdminDutiesRoute: typeof AdminDutiesRoute
   AdminEventsRoute: typeof AdminEventsRoute
   AdminInventoryRoute: typeof AdminInventoryRoute
   AdminPlatformRoute: typeof AdminPlatformRoute
@@ -524,6 +564,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminCommunicationRoute: AdminCommunicationRoute,
   AdminDevoteesRoute: AdminDevoteesRoute,
   AdminDonationsRoute: AdminDonationsRoute,
+  AdminDutiesRoute: AdminDutiesRoute,
   AdminEventsRoute: AdminEventsRoute,
   AdminInventoryRoute: AdminInventoryRoute,
   AdminPlatformRoute: AdminPlatformRoute,
@@ -546,6 +587,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   SignupRoute: SignupRoute,
   VolunteerSignupRoute: VolunteerSignupRoute,
+  VolunteerDutiesRoute: VolunteerDutiesRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

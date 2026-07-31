@@ -3,6 +3,7 @@ import { formatINR, statusLabel, formatTime, titleCase } from "@/lib/format";
 
 export * from "./dashboard";
 export * from "./inventory";
+export * from "./duties";
 
 // ---------------------------------------------------------------------------
 // Bookings
@@ -160,6 +161,7 @@ function mapVolunteer(v: any) {
     name: v.name,
     email: v.email,
     phone: v.phone,
+    isVolunteer: Boolean(v.is_volunteer), // NEW — true once admin-approved
     volunteerType: v.volunteer_type as "temporary" | "permanent",
     referenceVolunteerName: v.reference_volunteer_name,
     homeAddress: v.home_address,
@@ -179,12 +181,12 @@ function mapVolunteer(v: any) {
 }
 
 export async function getVolunteers(params: Record<string, string> = {}) {
-  const { data } = await api.get("/volunteers/", { params });
+  const { data } = await api.get("/volunteers/volunteers/", { params });
   return unwrap<any>(data).map(mapVolunteer);
 }
 
 export async function getVolunteersPage(params: { page?: number; search?: string; status?: string } = {}) {
-  const { data } = await api.get("/volunteers/", { params });
+  const { data } = await api.get("/volunteers/volunteers/", { params });
   return { rows: unwrap<any>(data).map(mapVolunteer), count: data.count ?? unwrap(data).length };
 }
 

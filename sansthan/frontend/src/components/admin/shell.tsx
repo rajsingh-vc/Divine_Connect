@@ -42,6 +42,7 @@ const NAV = [
       { to: "/admin/inventory", label: "Inventory & Prasad", icon: Boxes },
       { to: "/admin/events", label: "Events", icon: CalendarDays },
       { to: "/admin/tasks", label: "Tasks", icon: ClipboardList },
+      { to: "/admin/duties", label: "Duties", icon: ClipboardList },
     ],
   },
   {

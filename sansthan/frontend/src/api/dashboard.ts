@@ -22,9 +22,58 @@ export async function getVisitorFlow() {
   return data as { hour: string; visitors: number; bookings: number }[];
 }
 
-export async function getAiInsights() {
-  const { data } = await api.get("/dashboard/insights/");
-  return unwrap<{ title: string; detail: string }>(data);
+// ---------------------------------------------------------------------------
+// Live Festival Info (replaces the old "AI insights" widget)
+// ---------------------------------------------------------------------------
+export interface LiveFestivalInfo {
+  id: number;
+  title: string; // e.g. "Aarti", "VIP Darshan"
+  startTime: string; // ISO datetime
+  endTime: string; // ISO datetime
+  description: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FestivalInfoPayload {
+  title: string;
+  start_time: string; // ISO datetime
+  end_time: string; // ISO datetime
+  description?: string;
+  is_active?: boolean;
+}
+
+function mapFestivalInfo(f: any): LiveFestivalInfo {
+  return {
+    id: f.id,
+    title: f.title,
+    startTime: f.start_time,
+    endTime: f.end_time,
+    description: f.description || "",
+    isActive: Boolean(f.is_active),
+    createdAt: f.created_at,
+    updatedAt: f.updated_at,
+  };
+}
+
+export async function getFestivalInfo() {
+  const { data } = await api.get("/dashboard/festival-info/");
+  return unwrap<any>(data).map(mapFestivalInfo);
+}
+
+export async function createFestivalInfo(payload: FestivalInfoPayload) {
+  const { data } = await api.post("/dashboard/festival-info/", payload);
+  return mapFestivalInfo(data);
+}
+
+export async function updateFestivalInfo(id: number, payload: Partial<FestivalInfoPayload>) {
+  const { data } = await api.patch(`/dashboard/festival-info/${id}/`, payload);
+  return mapFestivalInfo(data);
+}
+
+export async function deleteFestivalInfo(id: number) {
+  await api.delete(`/dashboard/festival-info/${id}/`);
 }
 
 export async function getRevenueMix() {

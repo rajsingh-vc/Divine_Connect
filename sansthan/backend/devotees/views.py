@@ -4,12 +4,18 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from .models import Devotee
+from .permissions import IsAdminOrReadOnly
 from .serializers import DevoteeSerializer
 
 
 class DevoteeViewSet(viewsets.ModelViewSet):
+    """Read (list/retrieve/search): any authenticated user — admin,
+    volunteer, devotee. Write (create/update/partial_update/destroy):
+    admins only — see IsAdminOrReadOnly."""
+
     queryset = Devotee.objects.select_related("user").all()
     serializer_class = DevoteeSerializer
+    permission_classes = [IsAdminOrReadOnly]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ["tier", "city"]
     search_fields = ["full_name", "devotee_code", "mobile"]

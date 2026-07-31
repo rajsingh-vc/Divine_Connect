@@ -1,10 +1,10 @@
 from django.urls import path
 from rest_framework.routers import DefaultRouter
 
-from .views import AiInsightViewSet, AlertViewSet, dashboard_stats, revenue_mix, visitor_flow
+from .views import AlertViewSet, LiveFestivalInfoViewSet, dashboard_stats, revenue_mix, visitor_flow
 
 router = DefaultRouter()
-router.register(r"insights", AiInsightViewSet, basename="ai-insight")
+router.register(r"festival-info", LiveFestivalInfoViewSet, basename="live-festival-info")
 router.register(r"alerts", AlertViewSet, basename="alert")
 
 urlpatterns = [

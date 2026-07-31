@@ -1,5 +1,65 @@
 from rest_framework import serializers
-from .models import Volunteer, Verification, VolunteerApproval, Notification, AuditLog
+from .models import Volunteer, Verification, VolunteerApproval, Notification, AuditLog, VolunteerIdSequence, Duty
+
+
+class DutySerializer(serializers.ModelSerializer):
+    volunteer_name = serializers.CharField(source="volunteer.name", read_only=True)
+    volunteer_code = serializers.CharField(source="volunteer.volunteer_code", read_only=True)
+    created_by_name = serializers.CharField(source="created_by.get_full_name", read_only=True, default="")
+    swap_requested_with_name = serializers.CharField(source="swap_requested_with.name", read_only=True, default="")
+
+    class Meta:
+        model = Duty
+        fields = [
+            "id", "duty_code", "volunteer", "volunteer_name", "volunteer_code",
+            "title", "instructions", "location", "duty_date", "time",
+            "priority", "status", "help_note",
+            "swap_requested_with", "swap_requested_with_name", "swap_requested_at",
+            "created_by", "created_by_name",
+            "started_at", "completed_at", "created_at", "updated_at",
+        ]
+        read_only_fields = [
+            "id", "duty_code", "status", "help_note", "created_by",
+            "swap_requested_with", "swap_requested_at",
+            "started_at", "completed_at", "created_at", "updated_at",
+        ]
+
+
+class DutyAssignSerializer(serializers.Serializer):
+    """Admin payload: assign one duty to one or more volunteers at once."""
+    volunteer_ids = serializers.ListField(child=serializers.IntegerField(), allow_empty=False)
+    title = serializers.CharField(max_length=200)
+    instructions = serializers.CharField(required=False, allow_blank=True, default="")
+    location = serializers.CharField(required=False, allow_blank=True, default="")
+    duty_date = serializers.DateField()
+    time = serializers.TimeField(required=False, allow_null=True)
+    priority = serializers.ChoiceField(choices=Duty.Priority.choices, default=Duty.Priority.NORMAL)
+
+
+class DutyHelpSerializer(serializers.Serializer):
+    """Payload for the 'Swap / help' button.
+    - swap_with omitted or null -> plain help request (status=help_requested)
+    - swap_with set -> swap request to that specific volunteer,
+      populated from a dropdown (status=swap_requested)
+    """
+    note = serializers.CharField(max_length=300, required=False, allow_blank=True, default="")
+    swap_with = serializers.PrimaryKeyRelatedField(
+        queryset=Volunteer.objects.filter(is_volunteer=True, status=Volunteer.Status.ADMIN_APPROVED),
+        required=False,
+        allow_null=True,
+    )
+
+
+class DutySwapResponseSerializer(serializers.Serializer):
+    """Payload for the target volunteer accepting/declining a swap."""
+    action = serializers.ChoiceField(choices=["accept", "decline"])
+
+
+class SwapCandidateSerializer(serializers.ModelSerializer):
+    """Powers the 'select name from dropdown' list on the Swap screen."""
+    class Meta:
+        model = Volunteer
+        fields = ["id", "name", "volunteer_code", "public_id"]
 
 
 class VerificationSerializer(serializers.ModelSerializer):
@@ -55,7 +115,6 @@ class VolunteerDetailSerializer(serializers.ModelSerializer):
 
 
 class VolunteerRegisterSerializer(serializers.Serializer):
-    """Used when an approved volunteer registers a new volunteer (Step 1-2 of the form)."""
     name = serializers.CharField(max_length=150)
     email = serializers.EmailField()
     phone = serializers.CharField(max_length=20)
@@ -72,14 +131,8 @@ class VolunteerRegisterSerializer(serializers.Serializer):
     license_back = serializers.ImageField(required=False)
     live_photo = serializers.ImageField(required=False)
 
-    # Required for the "register" flow (approved volunteer referring someone
-    # new). Optional for the devotee "apply" flow, where the reference
-    # volunteer itself is also optional (see `reference_volunteer` below).
     reference_comment = serializers.CharField(max_length=1000, required=False, allow_blank=True, default="")
 
-    # Devotee "apply" flow only: an optional reference volunteer picked from
-    # the list of already-approved volunteers. Ignored by "register" (the
-    # reference there is always the logged-in volunteer, set server-side).
     reference_volunteer = serializers.PrimaryKeyRelatedField(
         queryset=Volunteer.objects.filter(status=Volunteer.Status.ADMIN_APPROVED),
         required=False,
@@ -88,20 +141,15 @@ class VolunteerRegisterSerializer(serializers.Serializer):
 
 
 class VolunteerApplySerializer(serializers.Serializer):
-    """Submission API used by the Flutter app — devotee applying to become
-    a volunteer. Only the fields the frontend actually collects:
-    name, email, phone, document photo(s), selfie, optional reference.
-    """
     name = serializers.CharField(max_length=150)
     email = serializers.EmailField()
     phone = serializers.CharField(max_length=20)
 
-    # "document photo" -> stored against the Aadhaar fields on Verification.
     document_front = serializers.ImageField()
     document_back = serializers.ImageField(required=False)
     document_number = serializers.CharField(required=False, allow_blank=True, default="")
 
-    selfie = serializers.ImageField()  # stored as live_photo
+    selfie = serializers.ImageField()
 
     reference_volunteer = serializers.PrimaryKeyRelatedField(
         queryset=Volunteer.objects.filter(status=Volunteer.Status.ADMIN_APPROVED),
@@ -117,8 +165,6 @@ class ReferenceActionSerializer(serializers.Serializer):
 class AdminActionSerializer(serializers.Serializer):
     action = serializers.ChoiceField(choices=["approve", "reject"])
     override = serializers.BooleanField(required=False, default=False)
-    # Optional on approve; required on reject — shown to the applicant and
-    # stored in the audit log (e.g. "Blurry photo", "Aadhaar number unreadable").
     reason = serializers.CharField(max_length=500, required=False, allow_blank=True, default="")
 
 

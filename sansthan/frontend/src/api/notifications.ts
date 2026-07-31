@@ -5,6 +5,8 @@ export type NotificationType =
   | "new_volunteer_application"
   | "status_update"
   | "announcement_urgent"
+  |"incident_reported"     // NEW
+  | "incident_response"  
   | "announcement_important";
 
 export interface VolunteerNotification {
@@ -13,6 +15,7 @@ export interface VolunteerNotification {
   message: string;
   type: NotificationType;
   related_volunteer: number | null;
+  related_incident: number | null;   // NEW
   is_read: boolean;
   created_at: string;
 }

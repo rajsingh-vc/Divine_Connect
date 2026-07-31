@@ -72,6 +72,8 @@ INSTALLED_APPS = [
     "communication",
     "tasks",
     "platform_admin",
+    "incidents",
+    "sos",
 ]
 
 
