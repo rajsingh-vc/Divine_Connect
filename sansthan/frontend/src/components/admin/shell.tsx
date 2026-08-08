@@ -60,8 +60,43 @@ const NAV = [
   },
 ];
 
+// Sidebar links hidden for the "devotee" role (console is shared across
+// admin/volunteer/devotee — devotees only get a reduced subset of items).
+const DEVOTEE_HIDDEN_PATHS = new Set([
+  "/admin/tasks",
+  "/admin/duties",
+  "/admin/events",
+  "/admin/ai",
+  "/admin/communication",
+  "/admin/platform",
+  "/admin/command",
+  "/admin/devotees",
+  "/admin/inventory",
+]);
+
+// Sidebar links hidden for the "volunteer" role.
+const VOLUNTEER_HIDDEN_PATHS = new Set(["/admin/volunteer-approvals"]);
+
+function getNavForUserType(userType?: string) {
+  const hidden =
+    userType === "devotee"
+      ? DEVOTEE_HIDDEN_PATHS
+      : userType === "volunteer"
+      ? VOLUNTEER_HIDDEN_PATHS
+      : null;
+
+  if (!hidden) return NAV;
+
+  return NAV.map((group) => ({
+    ...group,
+    items: group.items.filter((it) => !hidden.has(it.to)),
+  })).filter((group) => group.items.length > 0);
+}
+
 function Sidebar() {
   const path = useRouterState({ select: (s) => s.location.pathname });
+  const { user } = useAuth();
+  const nav = getNavForUserType(user?.user_type);
   return (
     <aside className="hidden md:flex fixed inset-y-0 left-0 z-30 w-64 flex-col border-r border-sidebar-border bg-sidebar">
       <div className="flex items-center gap-3 border-b border-sidebar-border px-5 py-5">
@@ -78,7 +113,7 @@ function Sidebar() {
         </div>
       </div>
       <nav className="flex-1 overflow-y-auto px-3 py-4">
-        {NAV.map((group) => (
+        {nav.map((group) => (
           <div key={group.label} className="mb-4">
             <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
               {group.label}
@@ -173,6 +208,8 @@ function TopbarUser() {
 
 function MobileNav() {
   const path = useRouterState({ select: (s) => s.location.pathname });
+  const { user } = useAuth();
+  const nav = getNavForUserType(user?.user_type);
   const [modules, setModules] = useState(false);
   return (
     <>
@@ -198,7 +235,7 @@ function MobileNav() {
           <div className="mx-auto mt-20 max-w-md rounded-2xl bg-card p-4 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <p className="mb-3 text-sm font-semibold">Modules</p>
             <div className="grid grid-cols-3 gap-2">
-              {NAV.flatMap((g) => g.items).map((it) => {
+              {nav.flatMap((g) => g.items).map((it) => {
                 const Icon = it.icon;
                 return (
                   <Link key={it.to} to={it.to} onClick={() => setModules(false)} className="flex flex-col items-center gap-1 rounded-xl border border-border p-3 text-center text-xs hover:bg-muted">

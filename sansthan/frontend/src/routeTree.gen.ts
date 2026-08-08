@@ -10,10 +10,14 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as MyQRCodeRouteImport } from './routes/MyQRCode'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as ApplyVolunteerRouteImport } from './routes/apply-volunteer'
+import { Route as BookRouteImport } from './routes/book'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
+import { Route as LiveDarshanRouteImport } from './routes/live-darshan'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as MyBookingsRouteImport } from './routes/my-bookings'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as VolunteerSignupRouteImport } from './routes/volunteer-signup'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
@@ -27,6 +31,7 @@ import { Route as AdminDonationsRouteImport } from './routes/admin.donations'
 import { Route as AdminDutiesRouteImport } from './routes/admin.duties'
 import { Route as AdminEventsRouteImport } from './routes/admin.events'
 import { Route as AdminInventoryRouteImport } from './routes/admin.inventory'
+import { Route as AdminLiveDarshanRouteImport } from './routes/admin.live-darshan'
 import { Route as AdminPlatformRouteImport } from './routes/admin.platform'
 import { Route as AdminReportsRouteImport } from './routes/admin.reports'
 import { Route as AdminSevasRouteImport } from './routes/admin.sevas'
@@ -34,11 +39,18 @@ import { Route as AdminTasksRouteImport } from './routes/admin.tasks'
 import { Route as AdminVisitorsRouteImport } from './routes/admin.visitors'
 import { Route as AdminVolunteerApprovalsRouteImport } from './routes/admin.volunteer-approvals'
 import { Route as AdminVolunteersRouteImport } from './routes/admin.volunteers'
+import { Route as AdminWalkInRouteImport } from './routes/admin.walk-in'
 import { Route as VolunteerDutiesRouteImport } from './routes/volunteer.duties'
+import { Route as VolunteerVipRegistrationRouteImport } from './routes/volunteer.vip-registration'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MyQRCodeRoute = MyQRCodeRouteImport.update({
+  id: '/MyQRCode',
+  path: '/MyQRCode',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminRoute = AdminRouteImport.update({
@@ -51,14 +63,29 @@ const ApplyVolunteerRoute = ApplyVolunteerRouteImport.update({
   path: '/apply-volunteer',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BookRoute = BookRouteImport.update({
+  id: '/book',
+  path: '/book',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
   id: '/forgot-password',
   path: '/forgot-password',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LiveDarshanRoute = LiveDarshanRouteImport.update({
+  id: '/live-darshan',
+  path: '/live-darshan',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MyBookingsRoute = MyBookingsRouteImport.update({
+  id: '/my-bookings',
+  path: '/my-bookings',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SignupRoute = SignupRouteImport.update({
@@ -126,6 +153,11 @@ const AdminInventoryRoute = AdminInventoryRouteImport.update({
   path: '/inventory',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminLiveDarshanRoute = AdminLiveDarshanRouteImport.update({
+  id: '/live-darshan',
+  path: '/live-darshan',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminPlatformRoute = AdminPlatformRouteImport.update({
   id: '/platform',
   path: '/platform',
@@ -161,18 +193,33 @@ const AdminVolunteersRoute = AdminVolunteersRouteImport.update({
   path: '/volunteers',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminWalkInRoute = AdminWalkInRouteImport.update({
+  id: '/walk-in',
+  path: '/walk-in',
+  getParentRoute: () => AdminRoute,
+} as any)
 const VolunteerDutiesRoute = VolunteerDutiesRouteImport.update({
   id: '/volunteer/duties',
   path: '/volunteer/duties',
   getParentRoute: () => rootRouteImport,
 } as any)
+const VolunteerVipRegistrationRoute =
+  VolunteerVipRegistrationRouteImport.update({
+    id: '/volunteer/vip-registration',
+    path: '/volunteer/vip-registration',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/MyQRCode': typeof MyQRCodeRoute
   '/admin': typeof AdminRouteWithChildren
   '/apply-volunteer': typeof ApplyVolunteerRoute
+  '/book': typeof BookRoute
   '/forgot-password': typeof ForgotPasswordRoute
+  '/live-darshan': typeof LiveDarshanRoute
   '/login': typeof LoginRoute
+  '/my-bookings': typeof MyBookingsRoute
   '/signup': typeof SignupRoute
   '/volunteer-signup': typeof VolunteerSignupRoute
   '/admin/ai': typeof AdminAiRoute
@@ -185,6 +232,7 @@ export interface FileRoutesByFullPath {
   '/admin/duties': typeof AdminDutiesRoute
   '/admin/events': typeof AdminEventsRoute
   '/admin/inventory': typeof AdminInventoryRoute
+  '/admin/live-darshan': typeof AdminLiveDarshanRoute
   '/admin/platform': typeof AdminPlatformRoute
   '/admin/reports': typeof AdminReportsRoute
   '/admin/sevas': typeof AdminSevasRoute
@@ -192,14 +240,20 @@ export interface FileRoutesByFullPath {
   '/admin/visitors': typeof AdminVisitorsRoute
   '/admin/volunteer-approvals': typeof AdminVolunteerApprovalsRoute
   '/admin/volunteers': typeof AdminVolunteersRoute
+  '/admin/walk-in': typeof AdminWalkInRoute
   '/volunteer/duties': typeof VolunteerDutiesRoute
+  '/volunteer/vip-registration': typeof VolunteerVipRegistrationRoute
   '/admin/': typeof AdminIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/MyQRCode': typeof MyQRCodeRoute
   '/apply-volunteer': typeof ApplyVolunteerRoute
+  '/book': typeof BookRoute
   '/forgot-password': typeof ForgotPasswordRoute
+  '/live-darshan': typeof LiveDarshanRoute
   '/login': typeof LoginRoute
+  '/my-bookings': typeof MyBookingsRoute
   '/signup': typeof SignupRoute
   '/volunteer-signup': typeof VolunteerSignupRoute
   '/admin/ai': typeof AdminAiRoute
@@ -212,6 +266,7 @@ export interface FileRoutesByTo {
   '/admin/duties': typeof AdminDutiesRoute
   '/admin/events': typeof AdminEventsRoute
   '/admin/inventory': typeof AdminInventoryRoute
+  '/admin/live-darshan': typeof AdminLiveDarshanRoute
   '/admin/platform': typeof AdminPlatformRoute
   '/admin/reports': typeof AdminReportsRoute
   '/admin/sevas': typeof AdminSevasRoute
@@ -219,16 +274,22 @@ export interface FileRoutesByTo {
   '/admin/visitors': typeof AdminVisitorsRoute
   '/admin/volunteer-approvals': typeof AdminVolunteerApprovalsRoute
   '/admin/volunteers': typeof AdminVolunteersRoute
+  '/admin/walk-in': typeof AdminWalkInRoute
   '/volunteer/duties': typeof VolunteerDutiesRoute
+  '/volunteer/vip-registration': typeof VolunteerVipRegistrationRoute
   '/admin': typeof AdminIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/MyQRCode': typeof MyQRCodeRoute
   '/admin': typeof AdminRouteWithChildren
   '/apply-volunteer': typeof ApplyVolunteerRoute
+  '/book': typeof BookRoute
   '/forgot-password': typeof ForgotPasswordRoute
+  '/live-darshan': typeof LiveDarshanRoute
   '/login': typeof LoginRoute
+  '/my-bookings': typeof MyBookingsRoute
   '/signup': typeof SignupRoute
   '/volunteer-signup': typeof VolunteerSignupRoute
   '/admin/ai': typeof AdminAiRoute
@@ -241,6 +302,7 @@ export interface FileRoutesById {
   '/admin/duties': typeof AdminDutiesRoute
   '/admin/events': typeof AdminEventsRoute
   '/admin/inventory': typeof AdminInventoryRoute
+  '/admin/live-darshan': typeof AdminLiveDarshanRoute
   '/admin/platform': typeof AdminPlatformRoute
   '/admin/reports': typeof AdminReportsRoute
   '/admin/sevas': typeof AdminSevasRoute
@@ -248,17 +310,23 @@ export interface FileRoutesById {
   '/admin/visitors': typeof AdminVisitorsRoute
   '/admin/volunteer-approvals': typeof AdminVolunteerApprovalsRoute
   '/admin/volunteers': typeof AdminVolunteersRoute
+  '/admin/walk-in': typeof AdminWalkInRoute
   '/volunteer/duties': typeof VolunteerDutiesRoute
+  '/volunteer/vip-registration': typeof VolunteerVipRegistrationRoute
   '/admin/': typeof AdminIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/MyQRCode'
     | '/admin'
     | '/apply-volunteer'
+    | '/book'
     | '/forgot-password'
+    | '/live-darshan'
     | '/login'
+    | '/my-bookings'
     | '/signup'
     | '/volunteer-signup'
     | '/admin/ai'
@@ -271,6 +339,7 @@ export interface FileRouteTypes {
     | '/admin/duties'
     | '/admin/events'
     | '/admin/inventory'
+    | '/admin/live-darshan'
     | '/admin/platform'
     | '/admin/reports'
     | '/admin/sevas'
@@ -278,14 +347,20 @@ export interface FileRouteTypes {
     | '/admin/visitors'
     | '/admin/volunteer-approvals'
     | '/admin/volunteers'
+    | '/admin/walk-in'
     | '/volunteer/duties'
+    | '/volunteer/vip-registration'
     | '/admin/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/MyQRCode'
     | '/apply-volunteer'
+    | '/book'
     | '/forgot-password'
+    | '/live-darshan'
     | '/login'
+    | '/my-bookings'
     | '/signup'
     | '/volunteer-signup'
     | '/admin/ai'
@@ -298,6 +373,7 @@ export interface FileRouteTypes {
     | '/admin/duties'
     | '/admin/events'
     | '/admin/inventory'
+    | '/admin/live-darshan'
     | '/admin/platform'
     | '/admin/reports'
     | '/admin/sevas'
@@ -305,15 +381,21 @@ export interface FileRouteTypes {
     | '/admin/visitors'
     | '/admin/volunteer-approvals'
     | '/admin/volunteers'
+    | '/admin/walk-in'
     | '/volunteer/duties'
+    | '/volunteer/vip-registration'
     | '/admin'
   id:
     | '__root__'
     | '/'
+    | '/MyQRCode'
     | '/admin'
     | '/apply-volunteer'
+    | '/book'
     | '/forgot-password'
+    | '/live-darshan'
     | '/login'
+    | '/my-bookings'
     | '/signup'
     | '/volunteer-signup'
     | '/admin/ai'
@@ -326,6 +408,7 @@ export interface FileRouteTypes {
     | '/admin/duties'
     | '/admin/events'
     | '/admin/inventory'
+    | '/admin/live-darshan'
     | '/admin/platform'
     | '/admin/reports'
     | '/admin/sevas'
@@ -333,19 +416,26 @@ export interface FileRouteTypes {
     | '/admin/visitors'
     | '/admin/volunteer-approvals'
     | '/admin/volunteers'
+    | '/admin/walk-in'
     | '/volunteer/duties'
+    | '/volunteer/vip-registration'
     | '/admin/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  MyQRCodeRoute: typeof MyQRCodeRoute
   AdminRoute: typeof AdminRouteWithChildren
   ApplyVolunteerRoute: typeof ApplyVolunteerRoute
+  BookRoute: typeof BookRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
+  LiveDarshanRoute: typeof LiveDarshanRoute
   LoginRoute: typeof LoginRoute
+  MyBookingsRoute: typeof MyBookingsRoute
   SignupRoute: typeof SignupRoute
   VolunteerSignupRoute: typeof VolunteerSignupRoute
   VolunteerDutiesRoute: typeof VolunteerDutiesRoute
+  VolunteerVipRegistrationRoute: typeof VolunteerVipRegistrationRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -355,6 +445,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/MyQRCode': {
+      id: '/MyQRCode'
+      path: '/MyQRCode'
+      fullPath: '/MyQRCode'
+      preLoaderRoute: typeof MyQRCodeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin': {
@@ -371,6 +468,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApplyVolunteerRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/book': {
+      id: '/book'
+      path: '/book'
+      fullPath: '/book'
+      preLoaderRoute: typeof BookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/forgot-password': {
       id: '/forgot-password'
       path: '/forgot-password'
@@ -378,11 +482,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ForgotPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/live-darshan': {
+      id: '/live-darshan'
+      path: '/live-darshan'
+      fullPath: '/live-darshan'
+      preLoaderRoute: typeof LiveDarshanRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/my-bookings': {
+      id: '/my-bookings'
+      path: '/my-bookings'
+      fullPath: '/my-bookings'
+      preLoaderRoute: typeof MyBookingsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/signup': {
@@ -476,6 +594,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminInventoryRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/live-darshan': {
+      id: '/admin/live-darshan'
+      path: '/live-darshan'
+      fullPath: '/admin/live-darshan'
+      preLoaderRoute: typeof AdminLiveDarshanRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/platform': {
       id: '/admin/platform'
       path: '/platform'
@@ -525,11 +650,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminVolunteersRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/walk-in': {
+      id: '/admin/walk-in'
+      path: '/walk-in'
+      fullPath: '/admin/walk-in'
+      preLoaderRoute: typeof AdminWalkInRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/volunteer/duties': {
       id: '/volunteer/duties'
       path: '/volunteer/duties'
       fullPath: '/volunteer/duties'
       preLoaderRoute: typeof VolunteerDutiesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/volunteer/vip-registration': {
+      id: '/volunteer/vip-registration'
+      path: '/volunteer/vip-registration'
+      fullPath: '/volunteer/vip-registration'
+      preLoaderRoute: typeof VolunteerVipRegistrationRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -546,6 +685,7 @@ interface AdminRouteChildren {
   AdminDutiesRoute: typeof AdminDutiesRoute
   AdminEventsRoute: typeof AdminEventsRoute
   AdminInventoryRoute: typeof AdminInventoryRoute
+  AdminLiveDarshanRoute: typeof AdminLiveDarshanRoute
   AdminPlatformRoute: typeof AdminPlatformRoute
   AdminReportsRoute: typeof AdminReportsRoute
   AdminSevasRoute: typeof AdminSevasRoute
@@ -553,6 +693,7 @@ interface AdminRouteChildren {
   AdminVisitorsRoute: typeof AdminVisitorsRoute
   AdminVolunteerApprovalsRoute: typeof AdminVolunteerApprovalsRoute
   AdminVolunteersRoute: typeof AdminVolunteersRoute
+  AdminWalkInRoute: typeof AdminWalkInRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
@@ -567,6 +708,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminDutiesRoute: AdminDutiesRoute,
   AdminEventsRoute: AdminEventsRoute,
   AdminInventoryRoute: AdminInventoryRoute,
+  AdminLiveDarshanRoute: AdminLiveDarshanRoute,
   AdminPlatformRoute: AdminPlatformRoute,
   AdminReportsRoute: AdminReportsRoute,
   AdminSevasRoute: AdminSevasRoute,
@@ -574,6 +716,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminVisitorsRoute: AdminVisitorsRoute,
   AdminVolunteerApprovalsRoute: AdminVolunteerApprovalsRoute,
   AdminVolunteersRoute: AdminVolunteersRoute,
+  AdminWalkInRoute: AdminWalkInRoute,
   AdminIndexRoute: AdminIndexRoute,
 }
 
@@ -581,13 +724,18 @@ const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  MyQRCodeRoute: MyQRCodeRoute,
   AdminRoute: AdminRouteWithChildren,
   ApplyVolunteerRoute: ApplyVolunteerRoute,
+  BookRoute: BookRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
+  LiveDarshanRoute: LiveDarshanRoute,
   LoginRoute: LoginRoute,
+  MyBookingsRoute: MyBookingsRoute,
   SignupRoute: SignupRoute,
   VolunteerSignupRoute: VolunteerSignupRoute,
   VolunteerDutiesRoute: VolunteerDutiesRoute,
+  VolunteerVipRegistrationRoute: VolunteerVipRegistrationRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

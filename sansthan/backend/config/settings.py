@@ -9,9 +9,11 @@ import os
 from dotenv import load_dotenv
 
 from decouple import Csv, config
- 
+
+import os
+
 BASE_DIR = Path(__file__).resolve().parent.parent
-load_dotenv(BASE_DIR / ".env") 
+load_dotenv(BASE_DIR / ".env")
 
 
 MEDIA_URL = "/media/"
@@ -27,9 +29,13 @@ DEBUG = config("DEBUG", default=True, cast=bool)
 #     cast=Csv(),
 # )
 
-ALLOWED_HOSTS=['*']
+ALLOWED_HOSTS = ['*']
 
 
+if DEBUG:
+    EMAIL_BACKEND = "accounts.email_backend.RelaxedSSLEmailBackend"
+else:
+    EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 
 AUTH_USER_MODEL = "accounts.User"
 
@@ -74,6 +80,7 @@ INSTALLED_APPS = [
     "platform_admin",
     "incidents",
     "sos",
+    "crowd_status",
 ]
 
 
@@ -166,6 +173,18 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10 MB
 FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024
 
 # ---------------------------------------------------------------------------
+# Live Ganpati Darshan — config-driven, no database row involved.
+# Change this whenever a new live stream starts (and restart the server,
+# or set it as an actual OS/host env var so a process manager restart
+# picks it up without a code deploy). Leave it empty ("") to hide the
+# banner on every dashboard.
+# ---------------------------------------------------------------------------
+GANPATI_LIVE_URL = config(
+    "GANPATI_LIVE_URL",
+    default="https://www.youtube.com/live/1oS-N5Y0QHI?si=F9zTnQsmIrsisyQI",
+)
+
+# ---------------------------------------------------------------------------
 # CORS — allow the Vite frontend to call the API
 # ---------------------------------------------------------------------------
 CORS_ALLOWED_ORIGINS = config(
@@ -196,6 +215,13 @@ REST_FRAMEWORK = {
         "rest_framework.renderers.JSONRenderer",
         "rest_framework.renderers.BrowsableAPIRenderer",
     ),
+    # Scoped rate limit used by the Volunteer Meal QR check-in/out endpoint.
+    # Legitimate use is ~2 scans/day per volunteer (in + out); 10/min per user
+    # gives generous headroom for retries/network hiccups while still blocking
+    # any abuse pattern (e.g. scripted repeat calls).
+    "DEFAULT_THROTTLE_RATES": {
+        "meal_scan": "10/min",
+    },
 }
 
 SIMPLE_JWT = {
@@ -208,10 +234,46 @@ SIMPLE_JWT = {
     "USER_ID_CLAIM": "user_id",
 }
 
+
+import os
+
+# EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = "smtp.gmail.com"          # or your provider
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD")
+DEFAULT_FROM_EMAIL = "Divine Connect <noreply@yourdomain.com>"
+
 # ---------------------------------------------------------------------------
 # Channels — WebSocket support for real-time volunteer notifications/status
 # ---------------------------------------------------------------------------
 REDIS_URL = config("REDIS_URL", default="redis://localhost:6379/0")
+
+
+# QR encryption key for the devotee/volunteer check-in system (crowd_status app).
+# Generate once with:
+#   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+# then put the value in your .env as QR_ENCRYPTION_KEY=... — never commit the
+# actual key. QR_ENCRYPTION_KEY_PREVIOUS is only set temporarily during a key
+# rotation so QR codes issued under the old key still decrypt.
+QR_ENCRYPTION_KEY = config("QR_ENCRYPTION_KEY", default=None)
+QR_ENCRYPTION_KEY_PREVIOUS = config("QR_ENCRYPTION_KEY_PREVIOUS", default=None)
+
+if not QR_ENCRYPTION_KEY:
+    if DEBUG:
+        # Dev-only fallback so runserver doesn't hard-crash without a .env
+        # entry yet. Not persisted — restarting the server invalidates any
+        # QR codes issued under it. Never let this branch run when DEBUG=False.
+        from cryptography.fernet import Fernet as _Fernet
+        QR_ENCRYPTION_KEY = _Fernet.generate_key().decode()
+        warnings.warn(
+            "QR_ENCRYPTION_KEY not set — using a throwaway dev key that will "
+            "change on every restart. Set QR_ENCRYPTION_KEY in your .env before "
+            "generating any QR codes you intend to keep working."
+        )
+    else:
+        raise RuntimeError("QR_ENCRYPTION_KEY environment variable is required when DEBUG=False.")
 
 if config("USE_REDIS_CHANNEL_LAYER", default=False, cast=bool):
     CHANNEL_LAYERS = {

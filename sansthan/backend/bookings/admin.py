@@ -5,7 +5,8 @@ from .models import Bill, Booking, Seva
 
 @admin.register(Seva)
 class SevaAdmin(admin.ModelAdmin):
-    list_display = ("name", "category", "price", "capacity", "is_active")
+    list_display = ("name", "category", "price", "capacity", "is_active", "is_popular")
+    list_filter = ("category", "is_active", "is_popular")
     search_fields = ("name", "category")
 
 

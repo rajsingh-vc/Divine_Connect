@@ -58,14 +58,39 @@ export const devotees = [
   { id: "DVT-10238", name: "Suresh Nair", mobile: "+91 9800000548", city: "Kochi", visits: 7, donated: "₹4,400", tier: "Member" },
 ];
 
-export interface Seva { name: string; category: string; price: string; duration: string; slots: number; capacity: number; priest: string; desc: string }
+// Real seva/tulabhar catalogue, sourced from GSB Seva Mandal's Online Seva
+// Booking page (web.gsbsevamandal.org/sevas/booking) — replaces the old
+// placeholder "Grand Pooja / Charity / Special" scrap list. category is
+// "Seva" | "Daily" | "Tulabhar"; isPopular drives the "Popular Seva" tab
+// and category === "Daily" drives the "Daily Seva" tab on the browse screen.
+export interface Seva {
+  name: string;
+  category: string;
+  price: string;
+  duration: string;
+  slots: number;
+  capacity: number;
+  priest: string;
+  desc: string;
+  isPopular: boolean;
+}
 export const sevas: Seva[] = [
-  { name: "Maha Moodganapati Seva", category: "Grand Pooja", price: "₹5,100", duration: "45 min", slots: 4, capacity: 50, priest: "Pt. Ramesh Shastri", desc: "The most auspicious grand pooja performed at the temple sanctum." },
-  { name: "Anna Daan Seva", category: "Charity", price: "₹2,500", duration: "All day", slots: 1, capacity: 500, priest: "Kitchen Committee", desc: "Sponsor the daily mahaprasad for hundreds of devotees." },
-  { name: "Tulabhar Seva", category: "Special", price: "₹11,000", duration: "30 min", slots: 6, capacity: 20, priest: "Pt. Suresh Joshi", desc: "Traditional weighing ritual against grains, sugar or coconuts." },
-  { name: "Abhishekam", category: "Daily", price: "₹1,100", duration: "20 min", slots: 8, capacity: 30, priest: "Pt. Vinod Bhat", desc: "Ceremonial bathing of the deity with sacred substances." },
-  { name: "Kalyanotsavam", category: "Grand Pooja", price: "₹7,800", duration: "60 min", slots: 3, capacity: 25, priest: "Pt. Krishna Rao", desc: "Celestial wedding ceremony of the divine couple." },
-  { name: "Sahasranama Archana", category: "Daily", price: "₹500", duration: "25 min", slots: 12, capacity: 40, priest: "Pt. Anand Sharma", desc: "Chanting the thousand names of the deity." },
+  { name: "Ekottara Sahasra Maha Ganayaga", category: "Seva", price: "₹7,05,705", duration: "Full day", slots: 5, capacity: 50, priest: "", desc: "Grand Ganesh Chaturthi seva — bookable across all 5 days.", isPopular: true },
+  { name: "Maha Santarpan Seva", category: "Seva", price: "₹3,93,325", duration: "Full day", slots: 5, capacity: 200, priest: "", desc: "Large-scale communal feeding seva.", isPopular: true },
+  { name: "Udayastaman Mahabhog Seva", category: "Seva", price: "₹2,50,875", duration: "Full day", slots: 5, capacity: 50, priest: "", desc: "Elaborate offering seva performed from sunrise.", isPopular: false },
+  { name: "Vigraha Yogadaan Seva", category: "Seva", price: "₹2,00,055", duration: "Full day", slots: 5, capacity: 50, priest: "", desc: "Special seva dedicated to the deity's idol.", isPopular: false },
+  { name: "Ati Vishesh Seva", category: "Seva", price: "₹1,60,355", duration: "Full day", slots: 5, capacity: 50, priest: "", desc: "Extra-special seva offering.", isPopular: false },
+  { name: "Udayastamana Seva", category: "Seva", price: "₹1,04,955", duration: "Full day", slots: 5, capacity: 50, priest: "", desc: "Sunrise-to-sunset day-long seva.", isPopular: true },
+  { name: "Maha Moodganapati Pooja", category: "Seva", price: "₹75,755", duration: "60 min", slots: 5, capacity: 50, priest: "", desc: "The grand Moodganapati pooja.", isPopular: true },
+  { name: "Anna Daan Seva", category: "Seva", price: "₹36,305", duration: "All day", slots: 5, capacity: 500, priest: "", desc: "Sponsor mahaprasad for hundreds of devotees.", isPopular: true },
+  { name: "Moodganapati Pooja", category: "Daily", price: "₹7,575", duration: "30 min", slots: 5, capacity: 50, priest: "", desc: "Everyday Moodganapati pooja.", isPopular: true },
+  { name: "Madhyahna Pooja", category: "Daily", price: "₹6,775", duration: "30 min", slots: 5, capacity: 50, priest: "", desc: "Midday pooja, offered daily.", isPopular: false },
+  { name: "Usha Pooja", category: "Daily", price: "₹1,825", duration: "20 min", slots: 5, capacity: 50, priest: "", desc: "Early-morning daily pooja.", isPopular: false },
+  { name: "Deeparadhana Seva", category: "Daily", price: "₹1,725", duration: "20 min", slots: 5, capacity: 50, priest: "", desc: "Daily lamp-offering seva.", isPopular: false },
+  { name: "Modak Naivedya", category: "Daily", price: "₹625", duration: "15 min", slots: 5, capacity: 50, priest: "", desc: "Daily modak offering to the deity.", isPopular: true },
+  { name: "Durva Archana Seva", category: "Daily", price: "₹575", duration: "15 min", slots: 5, capacity: 50, priest: "", desc: "Daily durva-grass archana.", isPopular: false },
+  { name: "Coconut Tulabhar (Above 12 yrs)", category: "Tulabhar", price: "₹2,105", duration: "20 min", slots: 5, capacity: 30, priest: "", desc: "Traditional weighing ritual against coconuts.", isPopular: false },
+  { name: "Modak Tulabhar (Above 12 yrs)", category: "Tulabhar", price: "₹13,705", duration: "20 min", slots: 5, capacity: 30, priest: "", desc: "Traditional weighing ritual against modaks.", isPopular: false },
 ];
 
 export const donationTrend = [

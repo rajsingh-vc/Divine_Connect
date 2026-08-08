@@ -6,6 +6,172 @@ from django.conf import settings
 from django.db import models
 from django.utils import timezone
 
+import hmac
+import hashlib
+import time
+import base64
+import secrets
+
+
+def generate_code(prefix: str) -> str:
+    return f"{prefix}-{secrets.token_hex(4).upper()}"
+
+
+def generate_meal_session_code() -> str:
+    return generate_code("MEAL")
+
+
+def generate_checkin_code() -> str:
+    return generate_code("TOK")
+
+
+def generate_qr_secret() -> str:
+    return secrets.token_hex(32)
+
+
+class MealSession(models.Model):
+    """One meal window at one physical location, e.g. 'Lunch — Gate 3, 12:00–14:00'."""
+
+    class MealName(models.TextChoices):
+        BREAKFAST = "breakfast", "Breakfast"
+        LUNCH = "lunch", "Lunch"
+        DINNER = "dinner", "Dinner"
+        SNACKS = "snacks", "Snacks"
+
+    session_code = models.CharField(max_length=20, unique=True, default=generate_meal_session_code)
+    meal_name = models.CharField(max_length=20, choices=MealName.choices, default=MealName.LUNCH)
+    location = models.CharField(max_length=100)  # e.g. "Gate 3", "Zone A canteen"
+    start_time = models.DateTimeField()
+    end_time = models.DateTimeField()
+    is_active = models.BooleanField(default=True)
+    # per-session secret so tokens from one session can't be replayed against another
+    qr_secret = models.CharField(max_length=64, default=generate_qr_secret)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="meal_sessions_created")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [models.Index(fields=["is_active", "start_time", "end_time"])]
+
+    def is_open(self) -> bool:
+        now = timezone.now()
+        return self.is_active and self.start_time <= now <= self.end_time
+
+    def current_token(self, ttl_seconds: int = 15) -> str:
+        """HMAC-signed, time-boxed token. No DB write — pure crypto, so this is O(1) and instant."""
+        window = int(time.time()) // ttl_seconds
+        payload = f"{self.id}:{window}"
+        sig = hmac.new(
+            (settings.SECRET_KEY + self.qr_secret).encode(),
+            payload.encode(),
+            hashlib.sha256,
+        ).hexdigest()[:16]
+        raw = f"{payload}:{sig}"
+        return base64.urlsafe_b64encode(raw.encode()).decode()
+
+    def verify_token(self, token: str, ttl_seconds: int = 15, grace_windows: int = 1) -> bool:
+        """Accepts current window and one window back, to tolerate clock/network lag."""
+        try:
+            raw = base64.urlsafe_b64decode(token.encode()).decode()
+            session_id_str, window_str, sig = raw.split(":")
+            if int(session_id_str) != self.id:
+                return False
+            window = int(window_str)
+        except (ValueError, TypeError):
+            return False
+
+        now_window = int(time.time()) // ttl_seconds
+        if not (now_window - grace_windows <= window <= now_window):
+            return False
+
+        payload = f"{session_id_str}:{window_str}"
+        expected_sig = hmac.new(
+            (settings.SECRET_KEY + self.qr_secret).encode(),
+            payload.encode(),
+            hashlib.sha256,
+        ).hexdigest()[:16]
+        return hmac.compare_digest(sig, expected_sig)
+
+    def personal_token(self, volunteer_id: int, ttl_seconds: int = 15) -> str:
+        """Token that identifies a specific volunteer for this session — this is
+        what gets rendered as the volunteer's own QR code."""
+        window = int(time.time()) // ttl_seconds
+        payload = f"{self.id}:{volunteer_id}:{window}"
+        sig = hmac.new(
+            (settings.SECRET_KEY + self.qr_secret).encode(),
+            payload.encode(),
+            hashlib.sha256,
+        ).hexdigest()[:16]
+        raw = f"{payload}:{sig}"
+        return base64.urlsafe_b64encode(raw.encode()).decode()
+
+    def verify_personal_token(self, token: str, ttl_seconds: int = 15, grace_windows: int = 1):
+        """Returns the volunteer_id encoded in the token if valid, else None."""
+        try:
+            raw = base64.urlsafe_b64decode(token.encode()).decode()
+            session_id_str, volunteer_id_str, window_str, sig = raw.split(":")
+            if int(session_id_str) != self.id:
+                return None
+            window = int(window_str)
+        except (ValueError, TypeError):
+            return None
+
+        now_window = int(time.time()) // ttl_seconds
+        if not (now_window - grace_windows <= window <= now_window):
+            return None
+
+        payload = f"{session_id_str}:{volunteer_id_str}:{window_str}"
+        expected_sig = hmac.new(
+            (settings.SECRET_KEY + self.qr_secret).encode(),
+            payload.encode(),
+            hashlib.sha256,
+        ).hexdigest()[:16]
+        if not hmac.compare_digest(sig, expected_sig):
+            return None
+        return int(volunteer_id_str)
+
+
+class MealCheckIn(models.Model):
+    STATUS_CHOICES = [("checked_in", "Checked In"), ("checked_out", "Checked Out")]
+
+    checkin_code = models.CharField(max_length=20, unique=True, default=generate_checkin_code)
+    session = models.ForeignKey(MealSession, on_delete=models.CASCADE, related_name="checkins")
+    volunteer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="meal_checkins")
+
+    # Snapshots taken at check-in time, so historical records don't drift if the
+    # volunteer's role/duty changes later.
+    assigned_role = models.CharField(max_length=100, blank=True)
+    shift_timing = models.CharField(max_length=100, blank=True)
+
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="checked_in")
+    check_in_time = models.DateTimeField(null=True, blank=True)
+    check_out_time = models.DateTimeField(null=True, blank=True)
+
+    scan_count = models.PositiveIntegerField(default=1)  # bumps if they scan again (shouldn't normally exceed 2: in+out)
+    device_ip = models.GenericIPAddressField(null=True, blank=True)
+
+    # NEW — unique signed receipt QR, generated fresh on every submission.
+    # This is proof-of-checkin shown to the volunteer, not scanned by anyone.
+    # qr_code = models.CharField(max_length=255, blank=True, default="")
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        # One check-in record per volunteer per session — enforces "can't double-claim".
+        constraints = [models.UniqueConstraint(fields=["session", "volunteer"], name="one_checkin_per_volunteer_per_session")]
+        indexes = [
+            models.Index(fields=["session", "volunteer"]),
+            models.Index(fields=["session", "status"]),
+        ]
+
+    # def generate_receipt_qr(self) -> str:
+    #     """Unique per submission — different every time, even for the same
+    #     volunteer/session, so no two check-ins ever share a code."""
+    #     payload = f"{self.id}:{self.volunteer_id}:{int(timezone.now().timestamp())}:{secrets.token_hex(4)}"
+    #     sig = hmac.new(settings.SECRET_KEY.encode(), payload.encode(), hashlib.sha256).hexdigest()[:16]
+    #     raw = f"{payload}:{sig}"
+    #     return base64.urlsafe_b64encode(raw.encode()).decode()
+
 
 def volunteer_photo_path(instance, filename):
     return f"volunteer_photos/{instance.volunteer_code or 'pending'}/{filename}"
@@ -184,10 +350,11 @@ class Duty(models.Model):
 
     class Status(models.TextChoices):
         ASSIGNED = "assigned", "Assigned"
+        ACCEPTED = "accepted", "Accepted"  # NEW — volunteer has accepted, not yet started
         IN_PROGRESS = "in_progress", "In Progress"
         COMPLETED = "completed", "Completed"
         HELP_REQUESTED = "help_requested", "Help Requested"
-        SWAP_REQUESTED = "swap_requested", "Swap Requested"  # NEW
+        SWAP_REQUESTED = "swap_requested", "Swap Requested"
 
     duty_code = models.CharField(max_length=20, unique=True, editable=False)
     volunteer = models.ForeignKey(Volunteer, on_delete=models.CASCADE, related_name="duties")
@@ -215,6 +382,7 @@ class Duty(models.Model):
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="assigned_duties"
     )
+    accepted_at = models.DateTimeField(null=True, blank=True)  # NEW — when volunteer tapped Accept
     started_at = models.DateTimeField(null=True, blank=True)
     completed_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -249,10 +417,13 @@ class Notification(models.Model):
         INCIDENT_REPORTED = "incident_reported", "New Incident Reported"
         INCIDENT_RESPONSE = "incident_response", "Incident Response"
         DUTY_ASSIGNED = "duty_assigned", "Duty Assigned"
+        SOS_ALERT = "sos_alert", "Emergency SOS"          # NEW
+        SOS_RESPONSE = "sos_response", "SOS Response"     # NEW
         DUTY_COMPLETED = "duty_completed", "Duty Completed"
         DUTY_HELP_REQUESTED = "duty_help_requested", "Duty Help/Swap Requested"
         DUTY_STATUS_UPDATE = "duty_status_update", "Duty Status Update"
         DUTY_SWAP_RESPONSE = "duty_swap_response", "Duty Swap Response"  # NEW
+        MEAL_SESSION_OPEN = "meal_session_open", "Meal Session Open"
 
     recipient = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="volunteer_notifications")
     title = models.CharField(max_length=150)
@@ -267,6 +438,10 @@ class Notification(models.Model):
     )
     is_read = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    related_sos = models.ForeignKey(
+    "sos.SOSAlert", null=True, blank=True, on_delete=models.CASCADE, related_name="notifications"
+)
 
     class Meta:
         ordering = ["-created_at"]

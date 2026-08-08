@@ -9,6 +9,65 @@ from .models import FAQ  # add FAQ to your existing models import line instead i
 
 from .models import TempleInfo
 
+
+from .models import VideoItem, youtube_id_from_url
+
+
+class VideoItemSerializer(serializers.ModelSerializer):
+    uploadedByName = serializers.CharField(source="uploaded_by.get_full_name", read_only=True, default="")
+    fileUrl = serializers.SerializerMethodField()
+    thumbnailUrl = serializers.SerializerMethodField()
+    embedUrl = serializers.SerializerMethodField()
+    createdAt = serializers.DateTimeField(source="created_at", read_only=True)
+
+    class Meta:
+        model = VideoItem
+        fields = [
+            "id", "source_type", "title", "description",
+            "youtube_url", "youtube_video_id", "embedUrl",
+            "file", "fileUrl", "thumbnail", "thumbnailUrl",
+            "uploaded_by", "uploadedByName", "createdAt",
+        ]
+        read_only_fields = ["id", "youtube_video_id", "uploaded_by", "uploadedByName", "createdAt"]
+        extra_kwargs = {
+            "file": {"write_only": True, "required": False},
+            "thumbnail": {"write_only": True, "required": False},
+        }
+
+    def get_fileUrl(self, obj):
+        request = self.context.get("request")
+        if obj.file and hasattr(obj.file, "url"):
+            return request.build_absolute_uri(obj.file.url) if request else obj.file.url
+        return None
+
+    def get_thumbnailUrl(self, obj):
+        request = self.context.get("request")
+        if obj.thumbnail and hasattr(obj.thumbnail, "url"):
+            return request.build_absolute_uri(obj.thumbnail.url) if request else obj.thumbnail.url
+        if obj.source_type == VideoItem.SourceType.YOUTUBE and obj.youtube_video_id:
+            return f"https://img.youtube.com/vi/{obj.youtube_video_id}/hqdefault.jpg"
+        return None
+
+    def get_embedUrl(self, obj):
+        if obj.source_type == VideoItem.SourceType.YOUTUBE and obj.youtube_video_id:
+            return f"https://www.youtube.com/embed/{obj.youtube_video_id}"
+        return None
+
+    def validate(self, attrs):
+        source_type = attrs.get("source_type", getattr(self.instance, "source_type", None))
+        youtube_url = attrs.get("youtube_url", getattr(self.instance, "youtube_url", ""))
+        file = attrs.get("file", getattr(self.instance, "file", None))
+
+        if source_type == VideoItem.SourceType.YOUTUBE:
+            if not youtube_url:
+                raise serializers.ValidationError({"youtube_url": "A YouTube link is required."})
+            if not youtube_id_from_url(youtube_url):
+                raise serializers.ValidationError({"youtube_url": "Couldn't recognize that as a YouTube link."})
+        elif source_type == VideoItem.SourceType.UPLOAD:
+            if not file:
+                raise serializers.ValidationError({"file": "A video file is required for uploads."})
+        return attrs
+
 class ContentPageSerializer(serializers.ModelSerializer):
     class Meta:
         model = ContentPage

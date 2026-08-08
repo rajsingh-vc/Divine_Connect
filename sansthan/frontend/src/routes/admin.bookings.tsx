@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState, type FormEvent, type ReactNode } from "react";
-import { CalendarCheck, Clock, CheckCircle2, XCircle, Filter, Download, Search, Plus, User, X, Trash2 } from "lucide-react";
+import { CalendarCheck, Clock, CheckCircle2, XCircle, Filter, Download, Search, Plus, User, X, Trash2, QrCode } from "lucide-react";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -19,20 +19,17 @@ export const Route = createFileRoute("/admin/bookings")({
   head: () => ({ meta: [{ title: "Booking Management — Sansthan Console" }] }),
   component: () => {
     const q = useQuery({ queryKey: ["bookings"], queryFn: getBookings });
-    // Sevas catalogue, shared with the "Sevas & Services" page — any seva
-    // created/edited there shows up here immediately (react-query cache is
-    // keyed the same as ["sevas"], and this list is refetched on mount).
     const sevasQ = useQuery({ queryKey: ["sevas"], queryFn: getSevas });
     const queryClient = useQueryClient();
     const [view, setView] = useState<"List" | "Calendar" | "Day view">("List");
     const [viewing, setViewing] = useState<BookingRow | null>(null);
+    const [qrBooking, setQrBooking] = useState<BookingRow | null>(null);
     const [addOpen, setAddOpen] = useState(false);
     const [deleting, setDeleting] = useState<BookingRow | null>(null);
     const [deleteBusy, setDeleteBusy] = useState(false);
 
     const bookings = q.data || [];
 
-    // ---- Dynamic stats (replaces the old hardcoded 1,284 / 42 / 1,180 / 62) ----
     const todayStr = new Date().toISOString().slice(0, 10);
     const todaysCount = bookings.filter((b) => b.date === todayStr).length;
     const awaitingCount = bookings.filter((b) => b.rawStatus === "pending").length;
@@ -123,6 +120,15 @@ export const Route = createFileRoute("/admin/bookings")({
                 { key: "channel", header: "Channel" },
                 { key: "paymentId", header: "Payment ID", render: (r) => r.paymentId ? <span className="font-mono text-xs text-muted-foreground">{r.paymentId}</span> : <span className="text-xs text-muted-foreground">—</span> },
                 { key: "status", header: "Status", render: (r) => <StatusBadge status={r.status} /> },
+                { key: "qr", header: "", render: (r) => r.encryptedQr ? (
+                  <button
+                    onClick={() => setQrBooking(r)}
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+                    title={r.isUsed ? "QR already scanned" : "View Booking QR"}
+                  >
+                    <QrCode className="h-3.5 w-3.5" /> {r.isUsed ? "Used" : "QR"}
+                  </button>
+                ) : <span className="text-xs text-muted-foreground">—</span> },
                 { key: "act", header: "", render: (r) => <button onClick={() => setViewing(r)} className="text-xs font-semibold text-primary hover:underline">View</button> },
                 { key: "remove", header: "", render: (r) => (
                   <button
@@ -140,7 +146,9 @@ export const Route = createFileRoute("/admin/bookings")({
           </ChartCard>
         </div>
 
-        {viewing && <BookingViewModal booking={viewing} onClose={() => setViewing(null)} />}
+        {viewing && <BookingViewModal booking={viewing} onClose={() => setViewing(null)} onViewQr={() => { setQrBooking(viewing); setViewing(null); }} />}
+
+        {qrBooking && <BookingQRModal booking={qrBooking} onClose={() => setQrBooking(null)} />}
 
         <ConfirmDialog
           open={!!deleting}
@@ -168,7 +176,15 @@ export const Route = createFileRoute("/admin/bookings")({
   },
 });
 
-function BookingViewModal({ booking, onClose }: { booking: BookingRow; onClose: () => void }) {
+function BookingViewModal({
+  booking,
+  onClose,
+  onViewQr,
+}: {
+  booking: BookingRow;
+  onClose: () => void;
+  onViewQr: () => void;
+}) {
   const rows: [string, string][] = [
     ["Booking ID", booking.id],
     ["Devotee", booking.devotee],
@@ -180,6 +196,7 @@ function BookingViewModal({ booking, onClose }: { booking: BookingRow; onClose: 
     ["Status", booking.status],
     ...(booking.billNumber ? ([["Bill Number", booking.billNumber]] as [string, string][]) : []),
     ...(booking.paymentId ? ([["Payment ID", booking.paymentId]] as [string, string][]) : []),
+    ...(booking.encryptedQr ? ([["Booking QR", booking.isUsed ? "Scanned / Used" : "Not yet scanned"]] as [string, string][]) : []),
   ];
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4 overflow-y-auto" onClick={onClose}>
@@ -193,9 +210,79 @@ function BookingViewModal({ booking, onClose }: { booking: BookingRow; onClose: 
             </div>
           ))}
         </dl>
-        <button onClick={onClose} className="mt-5 w-full rounded-full border border-border py-2 text-xs font-semibold hover:bg-muted">
-          Close
-        </button>
+        <div className="mt-5 grid grid-cols-2 gap-2">
+          <button onClick={onClose} className="rounded-full border border-border py-2 text-xs font-semibold hover:bg-muted">
+            Close
+          </button>
+          {booking.encryptedQr ? (
+            <button onClick={onViewQr} className="inline-flex items-center justify-center gap-1.5 rounded-full bg-foreground py-2 text-xs font-semibold text-background">
+              <QrCode className="h-3.5 w-3.5" /> View QR
+            </button>
+          ) : (
+            <button disabled className="rounded-full border border-border py-2 text-xs font-semibold text-muted-foreground opacity-50">
+              No QR yet
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Shows the Booking QR (Seva booking) — image if the backend returned one
+ *  (qr_image, a base64 PNG data-uri), plus scan status. Devotees see only
+ *  their own via the same-shaped backend response; this modal is admin-side
+ *  so it's always shown when a row has encryptedQr. */
+function BookingQRModal({ booking, onClose }: { booking: BookingRow; onClose: () => void }) {
+  function handleDownload() {
+    if (!booking.qrImage) return;
+    const a = document.createElement("a");
+    a.href = booking.qrImage;
+    a.download = `booking-qr-${booking.id}.png`;
+    a.click();
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4 overflow-y-auto" onClick={onClose}>
+      <div className="w-full max-w-sm rounded-2xl bg-card p-5 shadow-xl text-center" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between text-left">
+          <h3 className="font-serif text-lg font-semibold">Booking QR</h3>
+          <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <p className="mt-1 text-left text-xs text-muted-foreground">
+          {booking.devotee} · {booking.seva} · {booking.date} {booking.slot}
+        </p>
+
+        <div className="mt-4 flex justify-center">
+          {booking.qrImage ? (
+            <img src={booking.qrImage} alt={`QR for booking ${booking.id}`} className="h-52 w-52 rounded-xl border border-border object-contain" />
+          ) : (
+            <div className="flex h-52 w-52 items-center justify-center rounded-xl border border-dashed border-border text-xs text-muted-foreground">
+              QR image not available
+            </div>
+          )}
+        </div>
+
+        <p className={cn("mt-3 text-xs font-semibold", booking.isUsed ? "text-rose-600" : "text-emerald-600")}>
+          {booking.isUsed
+            ? `Already scanned${booking.qrScannedAt ? ` · ${new Date(booking.qrScannedAt).toLocaleString("en-IN")}` : ""}`
+            : "Not yet scanned"}
+        </p>
+
+        <div className="mt-5 grid grid-cols-2 gap-2">
+          <button onClick={onClose} className="rounded-full border border-border py-2 text-xs font-semibold hover:bg-muted">
+            Close
+          </button>
+          <button
+            onClick={handleDownload}
+            disabled={!booking.qrImage}
+            className="inline-flex items-center justify-center gap-1.5 rounded-full bg-foreground py-2 text-xs font-semibold text-background disabled:opacity-50"
+          >
+            <Download className="h-3.5 w-3.5" /> Download
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -222,9 +309,6 @@ interface DevoteeOption {
   mobile: string;
 }
 
-/** "New Booking" — the seva dropdown is fed straight from getSevas(), so any
- *  seva added on the Sevas & Services page (including brand new ones) shows
- *  up here immediately, no separate wiring needed. */
 function BookingFormModal({
   sevas,
   onClose,

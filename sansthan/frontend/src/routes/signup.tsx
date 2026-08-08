@@ -1,9 +1,11 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import { useAuth } from "@/lib/auth-context";
+// 👇 import logo
+import gsbLogo from "@/assests/gsb_seva.png";
 
 export const Route = createFileRoute("/signup")({
-  head: () => ({ meta: [{ title: "Create account — Sansthan Console" }] }),
+  head: () => ({ meta: [{ title: "Create account — Divine Connect" }] }),
   component: SignupPage,
 });
 
@@ -38,21 +40,14 @@ function SignupPage() {
         password,
         confirm_password: confirmPassword,
       };
-      // This always creates a Devotee account only — ticking the box below
-      // never creates a volunteer login by itself (Signup Restriction).
       await signup(payload);
 
       if (applyAsVolunteer) {
-        // Sign them in so the Volunteer Verification page (which requires
-        // an authenticated devotee) can be shown immediately, then redirect
-        // straight there to fill out and submit the application.
         await login(email, password);
         nav({ to: "/apply-volunteer" });
         return;
       }
 
-      // Account created — send the user to the login page to sign in
-      // explicitly, rather than auto-logging them in.
       nav({ to: "/login", search: { registered: "1" } });
     } catch (err: any) {
       const data = err?.response?.data;
@@ -66,13 +61,21 @@ function SignupPage() {
   return (
     <div className="min-h-screen grid place-items-center bg-background px-4 py-10">
       <div className="w-full max-w-md rounded-3xl border border-border bg-card p-8 shadow-lg">
+        {/* 👇 replaced ॐ with image container – same size as shell (h-16 w-16) */}
         <div className="mb-6 flex items-center gap-3">
-          <div className="grid h-12 w-12 place-items-center rounded-2xl bg-primary text-primary-foreground font-serif text-2xl">ॐ</div>
+          <div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-2xl">
+            <img
+              src={gsbLogo}
+              alt="GSB Seva Logo"
+              className="h-full w-full object-contain"
+            />
+          </div>
           <div>
-            <p className="font-serif text-xl font-semibold">Sansthan Console</p>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Enterprise Suite</p>
+            <p className="font-serif text-xl font-semibold">Divine Connect</p>
+            {/* <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Enterprise Suite</p> */}
           </div>
         </div>
+
         <h1 className="font-serif text-2xl font-semibold">Create your account</h1>
         <p className="mt-1 text-sm text-muted-foreground">Sign up to get started.</p>
 

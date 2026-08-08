@@ -110,3 +110,92 @@ export async function getRecentBookings() {
       status: b.status.charAt(0).toUpperCase() + b.status.slice(1),
     }));
 }
+
+// ---------------------------------------------------------------------------
+// Live Ganpati Darshan
+// ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Live Ganpati Darshan — config-driven (settings.GANPATI_LIVE_URL on the
+// backend). No admin form, no database row. Just polls the one status
+// endpoint and shows/hides the banner accordingly.
+// ---------------------------------------------------------------------------
+export interface LiveDarshanStatus {
+  isLive: boolean;
+  id?: number;
+  title?: string;
+  description?: string;
+  liveUrl?: string;
+  bannerImage?: string | null;
+}
+
+
+export interface LiveDarshanAdmin {
+  id: number;
+  title: string;
+  description: string;
+  liveUrl: string;
+  bannerImage: string | null;
+  isLive: boolean;
+  isLiveNow: boolean;
+  createdByName: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LiveDarshanPayload {
+  title?: string;      // optional — backend defaults to "Live Ganpati Darshan"
+  live_url: string;    // required
+  is_live: boolean;
+}
+
+function mapLiveDarshanStatus(d: any): LiveDarshanStatus {
+  if (!d?.is_live) return { isLive: false };
+  return {
+    isLive: true,
+    id: d.id,
+    title: d.title,
+    description: d.description,
+    liveUrl: d.live_url,
+    bannerImage: d.banner_image || null,
+  };
+}
+
+// Polled by every dashboard for the banner. Matches GET /api/dashboard/live-darshan/
+export async function getLiveDarshanStatus(): Promise<LiveDarshanStatus> {
+  const { data } = await api.get("/dashboard/live-darshan/");
+  return mapLiveDarshanStatus(data);
+}
+
+function mapLiveDarshanAdmin(d: any): LiveDarshanAdmin {
+  return {
+    id: d.id,
+    title: d.title,
+    description: d.description || "",
+    liveUrl: d.live_url,
+    bannerImage: d.banner_image || null,
+    isLive: Boolean(d.is_live),
+    isLiveNow: Boolean(d.is_live_now),
+    createdByName: d.created_by_name || "",
+    createdAt: d.created_at,
+    updatedAt: d.updated_at,
+  };
+}
+
+export async function getLiveDarshanAdminList() {
+  const { data } = await api.get("/dashboard/live-darshan-admin/");
+  return unwrap<any>(data).map(mapLiveDarshanAdmin);
+}
+
+export async function createLiveDarshan(payload: LiveDarshanPayload) {
+  const { data } = await api.post("/dashboard/live-darshan-admin/", payload);
+  return mapLiveDarshanAdmin(data);
+}
+
+export async function updateLiveDarshan(id: number, payload: Partial<LiveDarshanPayload>) {
+  const { data } = await api.patch(`/dashboard/live-darshan-admin/${id}/`, payload);
+  return mapLiveDarshanAdmin(data);
+}
+
+export async function deleteLiveDarshan(id: number) {
+  await api.delete(`/dashboard/live-darshan-admin/${id}/`);
+}

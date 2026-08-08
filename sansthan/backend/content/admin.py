@@ -7,6 +7,16 @@ from django.contrib import admin
 from .models import TempleInfo
 from .models import NewsPost
 
+
+from .models import VideoItem
+
+@admin.register(VideoItem)
+class VideoItemAdmin(admin.ModelAdmin):
+    list_display = ("title", "source_type", "uploaded_by", "created_at")
+    list_filter = ("source_type",)
+    search_fields = ("title", "description")
+    readonly_fields = ("youtube_video_id", "created_at")
+
 @admin.register(ContentPage)
 class ContentPageAdmin(admin.ModelAdmin):
     list_display = ("title", "slug", "status", "updated_at")

@@ -153,15 +153,17 @@ function VolunteersPage() {
 
       <div className="mt-4">
         <ChartCard title={activeTab.label}>
-          <VolunteerTable
-            tab={tab}
-            rows={list.data?.rows || []}
-            loading={list.isLoading}
-            onView={setViewing}
-            onEdit={setEditing}
-            onDelete={setDeleting}
-            onChange={invalidate}
-          />
+          <div className="max-h-80 overflow-y-auto pr-1">
+            <VolunteerTable
+              tab={tab}
+              rows={list.data?.rows || []}
+              loading={list.isLoading}
+              onView={setViewing}
+              onEdit={setEditing}
+              onDelete={setDeleting}
+              onChange={invalidate}
+            />
+          </div>
           {list.data && <PaginationBar page={page} pageSize={20} count={list.data.count} onPageChange={setPage} />}
         </ChartCard>
       </div>

@@ -4,17 +4,18 @@ from .models import Notification
 from .realtime import push_notification
 
 
-def notify(recipient_user, title, message, ntype, related_volunteer=None, related_incident=None, related_duty=None):
+def notify(recipient_user, title, message, ntype, related_volunteer=None, related_incident=None, related_duty=None, related_sos=None):
     notif = Notification.objects.create(
         recipient=recipient_user, title=title, message=message,
         type=ntype, related_volunteer=related_volunteer, related_incident=related_incident,
-        related_duty=related_duty,
+        related_duty=related_duty, related_sos=related_sos,
     )
     push_notification(recipient_user.id, {
         "id": notif.id, "title": title, "message": message,
         "type": ntype, "volunteer_id": related_volunteer.id if related_volunteer else None,
         "incident_id": related_incident.id if related_incident else None,
         "duty_id": related_duty.id if related_duty else None,
+        "sos_id": related_sos.id if related_sos else None,
         "created_at": notif.created_at.isoformat(),
     })
     return notif
@@ -66,6 +67,18 @@ def notify_duty_assigned(duty):
         related_volunteer=duty.volunteer,
         related_duty=duty,
     )
+
+
+def notify_duty_accepted(duty):
+    """Volunteer accepted a newly assigned duty -> notify all admins."""
+    for admin in _admins():
+        notify(
+            admin, "Duty Accepted",
+            f"{duty.volunteer.name} accepted \"{duty.title}\".",
+            Notification.Type.DUTY_STATUS_UPDATE,
+            related_volunteer=duty.volunteer,
+            related_duty=duty,
+        )
 
 
 def notify_duty_completed(duty):
@@ -137,4 +150,27 @@ def notify_duty_swap_responded(duty, original_volunteer, target_volunteer, actio
             Notification.Type.DUTY_SWAP_RESPONSE,
             related_volunteer=original_volunteer,
             related_duty=duty,
+        )
+
+def notify_volunteers_meal_session(session):
+    """Admin created a meal session (gate + time window) -> notify every
+    approved volunteer so they know a meal check-in window is open and can
+    go scan the QR displayed at that gate."""
+    from .models import Volunteer
+
+    start = session.start_time.strftime("%I:%M %p").lstrip("0")
+    end = session.end_time.strftime("%I:%M %p").lstrip("0")
+
+    volunteers = Volunteer.objects.filter(
+        is_volunteer=True,
+        status=Volunteer.Status.ADMIN_APPROVED,
+        user__isnull=False,
+    ).select_related("user")
+
+    for vol in volunteers:
+        notify(
+            vol.user,
+            "Meal Session Open",
+            f"Meal check-in is open at {session.location}, {start} – {end}. Scan the QR at the gate to check in.",
+            Notification.Type.MEAL_SESSION_OPEN,
         )

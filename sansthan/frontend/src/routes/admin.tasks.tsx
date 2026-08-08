@@ -14,6 +14,8 @@ import { ConfirmDialog } from "@/components/admin/confirm-dialog";
 import { PaginationBar } from "@/components/admin/pagination-bar";
 import { createTask, deleteTask, getTasks, getVolunteers, updateTask, type TaskPayload } from "@/api";
 import { cn } from "@/lib/utils";
+import { usePermissions } from "@/lib/permissions";
+import { useAuth } from "@/lib/auth-context";
 
 export const Route = createFileRoute("/admin/tasks")({
   head: () => ({ meta: [{ title: "Tasks — Sansthan Console" }] }),
@@ -23,6 +25,9 @@ export const Route = createFileRoute("/admin/tasks")({
 type TaskRow = Awaited<ReturnType<typeof getTasks>>["rows"][number];
 
 function TasksPage() {
+  const { isAdmin, canManage } = usePermissions();
+  const { user } = useAuth();
+
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
@@ -34,6 +39,10 @@ function TasksPage() {
   const [startingId, setStartingId] = useState<number | null>(null);
   const [swapping, setSwapping] = useState<TaskRow | null>(null);
   const queryClient = useQueryClient();
+
+  function canActOnTask(assignee?: string) {
+    return isAdmin || (!!assignee && assignee === user?.full_name);
+  }
 
   const q = useQuery({
     queryKey: ["tasks", page, search],
@@ -126,12 +135,14 @@ function TasksPage() {
                   className="rounded-full border border-border bg-background py-1.5 pl-9 pr-3 text-sm outline-none focus:border-primary"
                 />
               </div>
-              <button
-                onClick={() => setAddOpen(true)}
-                className="inline-flex items-center gap-1.5 rounded-full bg-foreground px-3 py-1.5 text-xs font-semibold text-background"
-              >
-                <Plus className="h-3.5 w-3.5" /> Add task
-              </button>
+              {canManage && (
+                <button
+                  onClick={() => setAddOpen(true)}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-foreground px-3 py-1.5 text-xs font-semibold text-background"
+                >
+                  <Plus className="h-3.5 w-3.5" /> Add task
+                </button>
+              )}
             </div>
           }
         >
@@ -149,45 +160,56 @@ function TasksPage() {
               {
                 key: "act",
                 header: "Actions",
-                render: (r) => (
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={() => handleToggleDone(r)}
-                      disabled={togglingId === r._id}
-                      title={r.rawStatus === "done" ? "Mark as pending" : "Mark complete"}
-                      className={cn(
-                        "grid h-5 w-5 shrink-0 place-items-center rounded-full border transition-colors disabled:opacity-50",
-                        r.rawStatus === "done"
-                          ? "border-emerald-500 bg-emerald-500 text-white"
-                          : "border-border text-transparent hover:border-emerald-400",
+                render: (r) => {
+                  const canAct = canActOnTask(r.assignee);
+                  return (
+                    <div className="flex items-center gap-3">
+                      {canAct && (
+                        <button
+                          onClick={() => handleToggleDone(r)}
+                          disabled={togglingId === r._id}
+                          title={r.rawStatus === "done" ? "Mark as pending" : "Mark complete"}
+                          className={cn(
+                            "grid h-5 w-5 shrink-0 place-items-center rounded-full border transition-colors disabled:opacity-50",
+                            r.rawStatus === "done"
+                              ? "border-emerald-500 bg-emerald-500 text-white"
+                              : "border-border text-transparent hover:border-emerald-400",
+                          )}
+                        >
+                          <Check className="h-3.5 w-3.5" strokeWidth={3} />
+                        </button>
                       )}
-                    >
-                      <Check className="h-3.5 w-3.5" strokeWidth={3} />
-                    </button>
-                    {r.rawStatus === "todo" && (
-                      <button
-                        onClick={() => handleStart(r)}
-                        disabled={startingId === r._id}
-                        className="text-muted-foreground hover:text-primary disabled:opacity-50"
-                        title="Start task"
-                      >
-                        <Play className="h-4 w-4" />
+                      {canAct && r.rawStatus === "todo" && (
+                        <button
+                          onClick={() => handleStart(r)}
+                          disabled={startingId === r._id}
+                          className="text-muted-foreground hover:text-primary disabled:opacity-50"
+                          title="Start task"
+                        >
+                          <Play className="h-4 w-4" />
+                        </button>
+                      )}
+                      {canManage && (
+                        <button onClick={() => setSwapping(r)} className="text-muted-foreground hover:text-primary" title="Swap / assign to volunteer">
+                          <ArrowLeftRight className="h-4 w-4" />
+                        </button>
+                      )}
+                      <button onClick={() => setViewing(r)} className="text-muted-foreground hover:text-primary" title="View">
+                        <Eye className="h-4 w-4" />
                       </button>
-                    )}
-                    <button onClick={() => setSwapping(r)} className="text-muted-foreground hover:text-primary" title="Swap / assign to volunteer">
-                      <ArrowLeftRight className="h-4 w-4" />
-                    </button>
-                    <button onClick={() => setViewing(r)} className="text-muted-foreground hover:text-primary" title="View">
-                      <Eye className="h-4 w-4" />
-                    </button>
-                    <button onClick={() => setEditing(r)} className="text-muted-foreground hover:text-primary" title="Edit">
-                      <Pencil className="h-4 w-4" />
-                    </button>
-                    <button onClick={() => setDeleting(r)} className="text-muted-foreground hover:text-rose-600" title="Delete">
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                ),
+                      {canManage && (
+                        <>
+                          <button onClick={() => setEditing(r)} className="text-muted-foreground hover:text-primary" title="Edit">
+                            <Pencil className="h-4 w-4" />
+                          </button>
+                          <button onClick={() => setDeleting(r)} className="text-muted-foreground hover:text-rose-600" title="Delete">
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  );
+                },
               },
             ]}
           />
@@ -195,7 +217,7 @@ function TasksPage() {
         </ChartCard>
       </div>
 
-      {addOpen && (
+      {addOpen && canManage && (
         <TaskFormModal
           title="Add task"
           onClose={() => setAddOpen(false)}
@@ -208,7 +230,7 @@ function TasksPage() {
         />
       )}
 
-      {editing && (
+      {editing && canManage && (
         <TaskFormModal
           title="Edit task"
           initial={editing}
@@ -224,7 +246,7 @@ function TasksPage() {
 
       {viewing && <TaskViewModal task={viewing} onClose={() => setViewing(null)} />}
 
-      {swapping && (
+      {swapping && canManage && (
         <SwapModal
           task={swapping}
           onClose={() => setSwapping(null)}

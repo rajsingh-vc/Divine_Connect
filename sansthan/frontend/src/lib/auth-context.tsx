@@ -8,6 +8,10 @@ export interface AuthUser {
   full_name: string;
   user_type: "devotee" | "volunteer" | "admin";
   phone: string;
+  /** The logged-in user's own Volunteer row id (not the User id) — null for
+   * admins/devotees. Powers auto-selecting "Referred by Volunteer" on the
+   * walk-in entry form. See accounts/serializers.py:UserSerializer. */
+  volunteer_id: number | null;
 }
 
 interface AuthTokens {

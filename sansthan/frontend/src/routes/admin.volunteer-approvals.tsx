@@ -196,11 +196,6 @@ function VolunteerApprovalsPage() {
           { key: "email", header: "Email" },
           { key: "reference_volunteer_name", header: "Reference Volunteer" },
           {
-            key: "reference_status",
-            header: "Volunteer Approval Status",
-            render: (row: VolunteerRow) => row.approval?.reference_status ?? "—",
-          },
-          {
             key: "public_id",
             header: "Volunteer ID",
             render: (row: VolunteerRow) => row.public_id ?? "—",

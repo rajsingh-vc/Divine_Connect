@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 
 
@@ -13,6 +14,7 @@ class SOSAlert(models.Model):
     optional so the tap itself is never blocked waiting on typing.
 
     - Created by volunteers (and admins, e.g. for a manual/phoned-in entry).
+      Devotees may also raise one, but only a Lost Child / Item alert.
     - Viewable by everyone logged in (admin + devotee + volunteer), same
       visibility model as the Incident Log.
     - Volunteers can edit/delete their own alerts (e.g. false alarm);
@@ -32,6 +34,10 @@ class SOSAlert(models.Model):
         IN_PROGRESS = "in_progress", "In Progress"
         RESOLVED = "resolved", "Resolved"
         CLOSED = "closed", "Closed"
+
+    # Alert types a devotee is allowed to raise. Defined after AlertType
+    # since it references AlertType.LOST_CHILD_ITEM.
+    DEVOTEE_ALLOWED_TYPES = {AlertType.LOST_CHILD_ITEM}
 
     sos_code = models.CharField(max_length=20, unique=True, editable=False)
     alert_type = models.CharField(max_length=30, choices=AlertType.choices)
@@ -74,6 +80,15 @@ class SOSAlert(models.Model):
             models.Index(fields=["alert_type"]),
             models.Index(fields=["status"]),
         ]
+
+    def clean(self):
+        super().clean()
+        raiser = self.raised_by
+        if raiser and getattr(raiser, "user_type", None) == "devotee":
+            if self.alert_type not in self.DEVOTEE_ALLOWED_TYPES:
+                raise ValidationError(
+                    {"alert_type": "Devotees can only raise a Lost Child / Item alert."}
+                )
 
     def save(self, *args, **kwargs):
         if not self.sos_code:

@@ -10,12 +10,17 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
 from payments.views import health_check
+from dashboard.views import live_darshan_status
 
 urlpatterns = [
     path("admin/", admin.site.urls),
 
     # Auth (signup / login / forgot-password / JWT refresh)
     path("api/auth/", include("accounts.urls")),
+
+    # Live Ganpati Darshan, aliased at the bare /api/ root as well as
+    # under /api/dashboard/ — both hit the exact same config-driven view.
+    path("api/live-darshan/", live_darshan_status, name="live-darshan-status-root"),
 
     # Feature modules
     path("api/dashboard/", include("dashboard.urls")),
@@ -34,8 +39,9 @@ urlpatterns = [
     path("api/platform-admin/", include("platform_admin.urls")),
     path("api/tasks/", include("tasks.urls")),
     path("api/incidents/", include("incidents.urls")),
-     path("api/sos/", include("sos.urls")),
+    path("api/sos/", include("sos.urls")),
     path("payments/", include("payments.urls")),
+    path("api/", include("crowd_status.urls")),
 ]
 
 if settings.DEBUG:

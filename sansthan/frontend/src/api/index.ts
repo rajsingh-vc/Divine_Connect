@@ -8,9 +8,8 @@ export * from "./duties";
 // ---------------------------------------------------------------------------
 // Bookings
 // ---------------------------------------------------------------------------
-export async function getBookings() {
-  const { data } = await api.get("/bookings/");
-  return unwrap<any>(data).map((b) => ({
+function mapBooking(b: any) {
+  return {
     id: b.booking_code,
     _id: b.id,
     devotee: b.devotee_name,
@@ -24,7 +23,25 @@ export async function getBookings() {
     rawStatus: b.status as "pending" | "confirmed" | "completed" | "cancelled",
     paymentId: b.payment_id || "",
     billNumber: b.bill_number || "",
-  }));
+    // --- Booking QR ---
+    encryptedQr: (b.encrypted_qr || "") as string,
+    qrImage: (b.qr_image || null) as string | null,
+    qrGeneratedAt: b.qr_generated_at as string | null,
+    qrScannedAt: b.qr_scanned_at as string | null,
+    isUsed: Boolean(b.is_used),
+  };
+}
+
+export type Booking = ReturnType<typeof mapBooking>;
+
+export async function getBookings() {
+  const { data } = await api.get("/bookings/");
+  return unwrap<any>(data).map(mapBooking);
+}
+
+export async function getBooking(id: number) {
+  const { data } = await api.get(`/bookings/${id}/`);
+  return mapBooking(data);
 }
 
 export interface BookingPayload {
@@ -39,11 +56,103 @@ export interface BookingPayload {
 
 export async function createBooking(payload: BookingPayload) {
   const { data } = await api.post("/bookings/", payload);
-  return data;
+  return mapBooking(data);
 }
 
 export async function deleteBooking(id: number) {
   await api.delete(`/bookings/${id}/`);
+}
+
+// ---------------------------------------------------------------------------
+// Meal Bookings — same Booking QR mechanics as Seva Bookings, separate
+// endpoint/model (bookings.MealBooking) since a meal booking isn't tied
+// to a Seva.
+// ---------------------------------------------------------------------------
+function mapMealBooking(m: any) {
+  return {
+    id: m.booking_code,
+    _id: m.id,
+    devotee: m.devotee_name,
+    mealName: m.meal_name,
+    mealDate: m.meal_date,
+    mealTime: m.meal_time,
+    amount: m.amount != null ? formatINR(m.amount) : "",
+    amountRaw: m.amount != null ? Number(m.amount) : null,
+    status: m.status.charAt(0).toUpperCase() + m.status.slice(1),
+    rawStatus: m.status as "pending" | "confirmed" | "completed" | "cancelled",
+    // --- Booking QR ---
+    encryptedQr: (m.encrypted_qr || "") as string,
+    qrImage: (m.qr_image || null) as string | null,
+    qrGeneratedAt: m.qr_generated_at as string | null,
+    qrScannedAt: m.qr_scanned_at as string | null,
+    isUsed: Boolean(m.is_used),
+  };
+}
+
+export type MealBooking = ReturnType<typeof mapMealBooking>;
+
+export async function getMealBookings() {
+  const { data } = await api.get("/bookings/meal-bookings/");
+  return unwrap<any>(data).map(mapMealBooking);
+}
+
+export async function getMealBooking(id: number) {
+  const { data } = await api.get(`/bookings/meal-bookings/${id}/`);
+  return mapMealBooking(data);
+}
+
+export interface MealBookingPayload {
+  devotee: number;
+  meal_name: string;
+  meal_date: string;
+  meal_time: string;
+  amount?: number;
+  status?: "pending" | "confirmed" | "completed" | "cancelled";
+}
+
+export async function createMealBooking(payload: MealBookingPayload) {
+  const { data } = await api.post("/bookings/meal-bookings/", payload);
+  return mapMealBooking(data);
+}
+
+export async function deleteMealBooking(id: number) {
+  await api.delete(`/bookings/meal-bookings/${id}/`);
+}
+
+// ---------------------------------------------------------------------------
+// Booking QR scan — Volunteer scans a Seva/Meal Booking QR (Flutter or the
+// admin console's own scan-test screen). Separate from the devotee
+// Entry/Meal Attendance QR system in crowd_status.
+// ---------------------------------------------------------------------------
+export interface ScanBookingQRResult {
+  status: "success" | "failed";
+  message?: string;
+  type?: "SEVA" | "MEAL";
+  bookingReference?: string;
+  devoteeName?: string;
+  sevaName?: string;
+  mealName?: string;
+  date?: string;
+  time?: string;
+}
+
+export async function scanBookingQR(encryptedData: string): Promise<ScanBookingQRResult> {
+  try {
+    const { data } = await api.post("/bookings/scan-booking-qr/", { encrypted_data: encryptedData });
+    return {
+      status: "success",
+      type: data.type,
+      bookingReference: data.booking_reference,
+      devoteeName: data.devotee_name,
+      sevaName: data.seva_name,
+      mealName: data.meal_name,
+      date: data.date,
+      time: data.time,
+    };
+  } catch (err: any) {
+    const data = err?.response?.data;
+    return { status: "failed", message: data?.message || "Could not verify this QR." };
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -72,6 +181,7 @@ function mapDevotee(d: any) {
     donated: formatINR(d.total_donated),
     tier: d.tier === "vip" ? "VIP" : "Member",
     tierRaw: d.tier as "member" | "vip",
+    guestCount: (d.guest_count ?? null) as number | null,
     createdAt: d.created_at,
   };
 }
@@ -101,6 +211,75 @@ export async function deleteDevotee(id: number) {
 }
 
 // ---------------------------------------------------------------------------
+// Devotee self-service registration
+// ---------------------------------------------------------------------------
+export interface DevoteeRegistrationPayload {
+  firstName: string;
+  middleName?: string;
+  lastName: string;
+  mobile: string;
+  whatsapp: string;
+  email: string;
+  address: string;
+  city: string;
+  pincode: string;
+  pan?: string;
+  referredByVolunteerId?: number | null;
+  guestCount?: number;
+}
+
+function mapDevoteeRegistration(d: any) {
+  return {
+    id: d.id,
+    devoteeCode: d.devotee_code,
+    fullName: d.full_name,
+    firstName: d.first_name,
+    middleName: d.middle_name,
+    lastName: d.last_name,
+    mobile: d.mobile,
+    whatsapp: d.whatsapp,
+    email: d.email,
+    address: d.address,
+    city: d.city,
+    pincode: d.pincode,
+    pan: d.pan_number,
+    referredByVolunteerId: d.referred_by_volunteer as number | null,
+    referredByVolunteerCode: d.referred_by_volunteer_code as string | null,
+    referredByVolunteerName: d.referred_by_volunteer_name as string | null,
+    tier: d.tier as "member" | "vip" | undefined,
+    guestCount: (d.guest_count ?? null) as number | null,
+  };
+}
+
+function toRegistrationApiPayload(payload: DevoteeRegistrationPayload) {
+  return {
+    first_name: payload.firstName,
+    middle_name: payload.middleName || "",
+    last_name: payload.lastName,
+    mobile: payload.mobile,
+    whatsapp: payload.whatsapp,
+    email: payload.email,
+    address: payload.address,
+    city: payload.city,
+    pincode: payload.pincode,
+    pan_number: payload.pan || "",
+    referred_by_volunteer: payload.referredByVolunteerId ?? null,
+    guest_count: payload.guestCount ?? null,
+  };
+}
+
+export async function lookupDevoteeByMobile(mobile: string) {
+  const { data } = await api.get("/devotees/lookup/", { params: { mobile } });
+  return data ? mapDevoteeRegistration(data) : null;
+}
+
+export async function registerDevotee(payload: DevoteeRegistrationPayload, opts?: { isVip?: boolean }) {
+  const body = { ...toRegistrationApiPayload(payload), ...(opts?.isVip ? { is_vip: true } : {}) };
+  const { data } = await api.post("/devotees/register/", body);
+  return mapDevoteeRegistration(data);
+}
+
+// ---------------------------------------------------------------------------
 // Sevas
 // ---------------------------------------------------------------------------
 export async function getSevas() {
@@ -118,6 +297,13 @@ export async function getSevas() {
     priest: s.priest,
     desc: s.description,
     isActive: Boolean(s.is_active),
+    isPopular: Boolean(s.is_popular),
+    startDate: s.start_date as string | null,   // NEW, required for bookable sevas
+    startTime: s.start_time as string | null,
+    endDate: s.end_date as string | null,        // NEW
+    endTime: s.end_time as string | null,
+    isLive: Boolean(s.is_live),                  // NEW — backend-computed, never trust client
+    isBookable: Boolean(s.is_bookable),           // NEW
   }));
 }
 
@@ -131,6 +317,11 @@ export interface SevaPayload {
   priest?: string;
   description?: string;
   is_active?: boolean;
+  is_popular?: boolean;
+  start_date: string | null;   // REQUIRED for bookable sevas, "YYYY-MM-DD"
+  start_time: string | null;   // REQUIRED, "HH:MM"
+  end_date: string | null;     // REQUIRED, "YYYY-MM-DD"
+  end_time: string | null;     // REQUIRED, "HH:MM"
 }
 
 export async function createSeva(payload: SevaPayload) {
@@ -144,6 +335,49 @@ export async function updateSeva(id: number, payload: Partial<SevaPayload>) {
 }
 
 // ---------------------------------------------------------------------------
+// Live Seva — GET /api/sevas/live/  (Sec.5/6/7/18). Poll this, don't compute
+// LIVE on the frontend; the backend is the source of truth.
+// ---------------------------------------------------------------------------
+export interface LiveSeva {
+  id: number;
+  name: string;
+  startDate: string;
+  startTime: string;
+  endDate: string;
+  endTime: string;
+  status: "LIVE" | "UPCOMING";
+}
+
+export async function getLiveSevas(includeUpcoming = false): Promise<LiveSeva[]> {
+  const { data } = await api.get("/sevas/live/", {
+    params: includeUpcoming ? { include_upcoming: "true" } : {},
+  });
+  return (data.results as any[]).map((s) => ({
+    id: s.id,
+    name: s.name,
+    startDate: s.start_date,
+    startTime: s.start_time,
+    endDate: s.end_date,
+    endTime: s.end_time,
+    status: s.status,
+  }));
+}
+
+// Sec.11/12 — backend-generated Seva Booking receipt PDF, built entirely
+// from trusted server data. Triggers a browser download.
+export async function downloadBookingPdf(bookingId: number, bookingCode: string) {
+  const { data } = await api.get(`/bookings/${bookingId}/pdf/`, { responseType: "blob" });
+  const url = window.URL.createObjectURL(new Blob([data], { type: "application/pdf" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `seva-booking-${bookingCode}.pdf`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+}
+
+// ---------------------------------------------------------------------------
 // Donations
 // ---------------------------------------------------------------------------
 export async function getDonationTrend() {
@@ -152,7 +386,7 @@ export async function getDonationTrend() {
 }
 
 // ---------------------------------------------------------------------------
-// Volunteers (list helpers used outside the dedicated Volunteers module page)
+// Volunteers
 // ---------------------------------------------------------------------------
 function mapVolunteer(v: any) {
   return {
@@ -161,7 +395,7 @@ function mapVolunteer(v: any) {
     name: v.name,
     email: v.email,
     phone: v.phone,
-    isVolunteer: Boolean(v.is_volunteer), // NEW — true once admin-approved
+    isVolunteer: Boolean(v.is_volunteer),
     volunteerType: v.volunteer_type as "temporary" | "permanent",
     referenceVolunteerName: v.reference_volunteer_name,
     homeAddress: v.home_address,
@@ -371,7 +605,7 @@ export async function deleteTask(id: number) {
 }
 
 // ---------------------------------------------------------------------------
-// Bills — "Sevas & Services" > Generate Bill > Razorpay > Invoice flow
+// Bills
 // ---------------------------------------------------------------------------
 export interface GenerateBillPayload {
   devotee: number;
@@ -412,7 +646,6 @@ export async function getBills(params: { page?: number; search?: string; payment
   return { rows: unwrap<any>(data).map(mapBill), count: data.count ?? unwrap(data).length };
 }
 
-/** Step 1 of the Generate Bill flow: creates the Bill + a matching Razorpay order. */
 export async function generateBill(payload: GenerateBillPayload) {
   const { data } = await api.post("/bills/generate/", payload);
   return {
@@ -421,7 +654,6 @@ export async function generateBill(payload: GenerateBillPayload) {
   };
 }
 
-/** Step 2: verify the signature Razorpay checkout.js hands back, and save payment + invoice. */
 export async function verifyBillPayment(
   billId: number,
   payload: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string },

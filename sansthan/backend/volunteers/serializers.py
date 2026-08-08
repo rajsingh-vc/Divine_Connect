@@ -1,6 +1,47 @@
 from rest_framework import serializers
 from .models import Volunteer, Verification, VolunteerApproval, Notification, AuditLog, VolunteerIdSequence, Duty
 
+from rest_framework import serializers
+from .models import MealSession, MealCheckIn
+
+
+class MealSessionSerializer(serializers.ModelSerializer):
+    is_open = serializers.SerializerMethodField()
+    meal_name_display = serializers.CharField(source="get_meal_name_display", read_only=True)
+
+    class Meta:
+        model = MealSession
+        fields = [
+            "id", "session_code", "meal_name", "meal_name_display", "location", "start_time", "end_time",
+            "is_active", "is_open", "created_at",
+        ]
+        read_only_fields = ["session_code", "created_at"]
+
+    def get_is_open(self, obj):
+        return obj.is_open()
+
+
+class MealCheckInSerializer(serializers.ModelSerializer):
+    volunteer_name = serializers.CharField(source="volunteer.full_name", read_only=True)
+    volunteer_code = serializers.CharField(source="volunteer.volunteer_code", read_only=True, default="")
+    location = serializers.CharField(source="session.location", read_only=True)
+    session_code = serializers.CharField(source="session.session_code", read_only=True)
+    # NEW — which meal this check-in belongs to, so the scan result can show
+    # name/id/meal-type/entry-status together without a second lookup.
+    meal_name = serializers.CharField(source="session.meal_name", read_only=True)
+    meal_name_display = serializers.CharField(source="session.get_meal_name_display", read_only=True)
+
+    class Meta:
+        model = MealCheckIn
+        fields = [
+            "id", "checkin_code", "session", "session_code", "location",
+            "volunteer", "volunteer_name", "volunteer_code",
+            "meal_name", "meal_name_display",
+            "assigned_role", "shift_timing", "status",
+            "check_in_time", "check_out_time", "scan_count", "created_at",
+        ]
+        read_only_fields = fields
+
 
 class DutySerializer(serializers.ModelSerializer):
     volunteer_name = serializers.CharField(source="volunteer.name", read_only=True)
@@ -16,12 +57,12 @@ class DutySerializer(serializers.ModelSerializer):
             "priority", "status", "help_note",
             "swap_requested_with", "swap_requested_with_name", "swap_requested_at",
             "created_by", "created_by_name",
-            "started_at", "completed_at", "created_at", "updated_at",
+            "accepted_at", "started_at", "completed_at", "created_at", "updated_at",
         ]
         read_only_fields = [
             "id", "duty_code", "status", "help_note", "created_by",
             "swap_requested_with", "swap_requested_at",
-            "started_at", "completed_at", "created_at", "updated_at",
+            "accepted_at", "started_at", "completed_at", "created_at", "updated_at",
         ]
 
 
@@ -180,3 +221,14 @@ class AuditLogSerializer(serializers.ModelSerializer):
     class Meta:
         model = AuditLog
         fields = ["id", "action", "actor", "actor_name", "detail", "created_at"]
+
+class MealSelfCheckInSerializer(serializers.Serializer):
+    """Volunteer-supplied fields when they tap 'Meal'."""
+    location = serializers.CharField(max_length=100)
+    start_time = serializers.DateTimeField()
+    end_time = serializers.DateTimeField()
+
+    def validate(self, data):
+        if data["end_time"] <= data["start_time"]:
+            raise serializers.ValidationError("end_time must be after start_time.")
+        return data

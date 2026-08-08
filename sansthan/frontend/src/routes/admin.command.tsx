@@ -34,7 +34,7 @@ import {
   type IncidentStatus,
 } from "@/api/incidents";
 import { getSOSAlerts, deleteSOSAlert, type SOSAlert, type SOSAlertType } from "@/api/sos";
-import { useAuth } from "@/lib/auth-context";
+import { usePermissions } from "@/lib/permissions";
 
 const CATEGORY_FILTERS: { value: IncidentCategory | "all"; label: string }[] = [
   { value: "all", label: "All categories" },
@@ -84,7 +84,7 @@ export const Route = createFileRoute("/admin/command")({
 });
 
 function CommandCentrePage() {
-  const { user } = useAuth();
+  const { isAdmin, canReportIncident } = usePermissions();
   const queryClient = useQueryClient();
 
   const [category, setCategory] = useState<IncidentCategory | "all">("all");
@@ -103,10 +103,8 @@ function CommandCentrePage() {
   const [sosDeleting, setSosDeleting] = useState<SOSAlert | null>(null);
   const [sosDeleteBusy, setSosDeleteBusy] = useState(false);
 
-  const isAdmin = user?.user_type === "admin";
-  const isVolunteer = user?.user_type === "volunteer";
   // Devotees can view the log but never file, edit, or delete a report.
-  const canReport = isAdmin || isVolunteer;
+  const canReport = canReportIncident;
 
   const q = useQuery({
     queryKey: ["incidents", category, severity, status, search],
@@ -149,19 +147,14 @@ function CommandCentrePage() {
     queryClient.invalidateQueries({ queryKey: ["sos-alerts"] });
   }
 
-  // Admin can edit/delete any report; a volunteer only their own; devotee never.
-  function canEdit(incident: IncidentReport) {
-    if (isAdmin) return true;
-    if (isVolunteer) return incident.reported_by === user?.id;
-    return false;
+  // Admin and volunteer can edit/delete any incident report; devotee never.
+  function canEdit(_incident: IncidentReport) {
+    return canReportIncident;
   }
 
-  // Same rule as backend SOSAlertPermission: admin -> any alert,
-  // volunteer -> only their own, devotee -> never.
-  function canEditSOS(alert: SOSAlert) {
-    if (isAdmin) return true;
-    if (isVolunteer) return alert.raised_by === user?.id;
-    return false;
+  // Admin and volunteer can edit/delete any SOS alert; devotee never.
+  function canEditSOS(_alert: SOSAlert) {
+    return canReportIncident;
   }
 
   async function handleDelete() {
@@ -268,7 +261,7 @@ function CommandCentrePage() {
             </div>
           }
         >
-          <div className="space-y-2">
+          <div className="max-h-80 overflow-y-auto pr-1 space-y-2">
             {q.isLoading && (
               <p className="py-6 text-center text-sm text-muted-foreground">Loading incident log...</p>
             )}
@@ -366,7 +359,7 @@ function CommandCentrePage() {
             </div>
           )}
 
-          <div className="space-y-2">
+          <div className="max-h-80 overflow-y-auto pr-1 space-y-2">
             {sosQuery.isLoading && (
               <p className="py-6 text-center text-sm text-muted-foreground">Loading SOS alerts...</p>
             )}

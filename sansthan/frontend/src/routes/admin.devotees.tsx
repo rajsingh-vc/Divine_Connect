@@ -1,7 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
-import { Users, Star, UserCheck, Wallet, Plus, Search, Pencil, Eye, Trash2 } from "lucide-react";
+import { Users, Star, UserCheck, Wallet, Plus, Search, Pencil, Eye, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader, ChartCard } from "@/components/admin/chart-card";
 import { StatCard } from "@/components/admin/stat-card";
@@ -61,6 +61,14 @@ function DevoteesPage() {
         eyebrow="Operations"
         title="Devotee Management"
         subtitle="Search, profile, visit history, donations, and bookings for every devotee."
+        actions={
+          <Link
+            to="/admin/walk-in"
+            className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-xs font-semibold hover:bg-muted"
+          >
+            <UserPlus className="h-3.5 w-3.5" /> Walk-in Entry
+          </Link>
+        }
       />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -123,6 +131,7 @@ function DevoteesPage() {
               { key: "visits", header: "Visits" },
               { key: "donated", header: "Donated", render: (r) => <span className="font-semibold">{r.donated}</span> },
               { key: "tier", header: "Tier", render: (r) => <StatusBadge status={r.tier} /> },
+              { key: "guests", header: "Guests", render: (r) => <span>{r.guestCount ?? "—"}</span> },
               {
                 key: "act",
                 header: "Actions",
@@ -133,9 +142,6 @@ function DevoteesPage() {
                     </button>
                     <button onClick={() => setEditing(r)} className="text-muted-foreground hover:text-primary" title="Edit">
                       <Pencil className="h-4 w-4" />
-                    </button>
-                    <button onClick={() => setDeleting(r)} className="text-muted-foreground hover:text-rose-600" title="Delete">
-                      <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
                 ),
@@ -289,6 +295,7 @@ function DevoteeViewModal({ devotee, onClose }: { devotee: DevoteeRow; onClose: 
     ["Visits", String(devotee.visits)],
     ["Total Donated", devotee.donated],
     ["Tier", devotee.tier],
+    ["Guests", devotee.guestCount != null ? String(devotee.guestCount) : "—"],
     ["Member Since", new Date(devotee.createdAt).toLocaleDateString()],
   ];
   return (

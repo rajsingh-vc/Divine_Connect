@@ -1,3 +1,5 @@
+import base64
+
 from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.utils import timezone
@@ -16,12 +18,304 @@ from .serializers import (
 )
 from .notifications import (
     notify, notify_reference_required, notify_admins_new_application,
-    notify_duty_assigned, notify_duty_completed, notify_duty_help_requested,
+    notify_duty_assigned, notify_duty_accepted, notify_duty_completed, notify_duty_help_requested,
     notify_duty_swap_requested, notify_duty_swap_responded,
+    notify_volunteers_meal_session,
 )
 from .realtime import push_status_update
 
 User = get_user_model()
+
+
+from django.utils import timezone
+from django.db import transaction
+from django.db.models import Count
+from rest_framework import viewsets, status
+from rest_framework.decorators import action
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
+from rest_framework.views import APIView
+
+from .models import MealSession, MealCheckIn, generate_code
+from .serializers import MealSessionSerializer, MealCheckInSerializer
+from .permissions import IsAdminOrReadOnly  # reuse whatever admin-write/read-all permission you already have
+
+
+class MealSessionViewSet(viewsets.ModelViewSet):
+    """Admin creates/edits meal windows (gate + start/end time). Everyone
+    authenticated can list (needed so the volunteer app can find the active
+    session for scanning). Creating a session notifies every approved
+    volunteer that meal check-in is open."""
+    queryset = MealSession.objects.all().order_by("-start_time")
+    serializer_class = MealSessionSerializer
+    permission_classes = [IsAdminOrReadOnly]
+
+    def perform_create(self, serializer):
+        session = serializer.save(created_by=self.request.user)
+        notify_volunteers_meal_session(session)
+
+    @action(detail=False, methods=["get"])
+    def active(self, request):
+        now = timezone.now()
+        sessions = self.get_queryset().filter(is_active=True, start_time__lte=now, end_time__gte=now)
+        return Response(MealSessionSerializer(sessions, many=True).data)
+
+    @action(detail=True, methods=["get"], permission_classes=[IsAdminUser])
+    def token(self, request, pk=None):
+        """Kiosk/gate-display endpoint — polls this every ~10-15s to refresh the QR image.
+        Pure crypto, no DB write, so this is safe to hit frequently."""
+        session = self.get_object()
+        if not session.is_open():
+            return Response({"detail": "This meal session is not currently open."}, status=400)
+        return Response({"token": session.current_token(), "ttl_seconds": 15})
+
+    @action(detail=True, methods=["get"], url_path="my-qr", permission_classes=[IsAuthenticated])
+    def my_qr(self, request, pk=None):
+        """Volunteer-facing: polls this every ~10-12s to render/refresh their own
+        personal QR on screen. Pure crypto, no DB write — same shape as `token`
+        above, but the payload identifies the requesting volunteer, not the gate."""
+        session = self.get_object()
+        if not session.is_open():
+            return Response({"detail": "This meal session is not currently open."}, status=400)
+
+        vol = getattr(request.user, "volunteer_profile_v2", None)
+        if not vol or not (vol.is_volunteer and vol.status == Volunteer.Status.ADMIN_APPROVED):
+            return Response({"detail": "No approved volunteer profile found for this account."}, status=403)
+
+        token = session.personal_token(vol.id)
+        return Response({"token": token, "ttl_seconds": 15, "volunteer_code": vol.volunteer_code})
+
+    @action(detail=True, methods=["get"], permission_classes=[IsAdminUser])
+    def checkins(self, request, pk=None):
+        session = self.get_object()
+        rows = session.checkins.select_related("volunteer").order_by("-check_in_time")
+        return Response(MealCheckInSerializer(rows, many=True).data)
+
+
+def _decode_meal_scan(token):
+    """Shared token-decode/lookup used by both MealScanView.post (writes) and
+    MealScanView.get (read-only peek). Decodes a volunteer's personal QR token
+    and resolves which volunteer it belongs to. Returns (session, volunteer,
+    error_response) — exactly one of (session, volunteer) or error_response
+    will be non-None."""
+    if not token:
+        return None, None, Response({"detail": "Missing token."}, status=400)
+
+    try:
+        raw = base64.urlsafe_b64decode(token.encode()).decode()
+        session_id = int(raw.split(":")[0])
+    except Exception:
+        return None, None, Response({"detail": "Invalid QR code."}, status=400)
+
+    try:
+        session = MealSession.objects.get(id=session_id)
+    except MealSession.DoesNotExist:
+        return None, None, Response({"detail": "Invalid QR code."}, status=400)
+
+    volunteer_id = session.verify_personal_token(token)
+    if volunteer_id is None:
+        return None, None, Response(
+            {"detail": "This QR code has expired. Ask the volunteer to refresh it and rescan."}, status=400
+        )
+
+    if not session.is_open():
+        return None, None, Response({"detail": "This meal session is not currently open."}, status=400)
+
+    try:
+        volunteer = Volunteer.objects.select_related("user").get(id=volunteer_id)
+    except Volunteer.DoesNotExist:
+        return None, None, Response({"detail": "Volunteer not found."}, status=400)
+
+    if not volunteer.user:
+        return None, None, Response({"detail": "This volunteer has no linked login account."}, status=400)
+
+    if not (volunteer.is_volunteer and volunteer.status == Volunteer.Status.ADMIN_APPROVED):
+        return None, None, Response(
+            {"detail": f"{volunteer.name} is not currently an approved volunteer."}, status=400
+        )
+
+    return session, volunteer, None
+
+
+class MealScanView(APIView):
+    """Kiosk-facing: scans a volunteer's personal QR to check them in, scans
+    again to check them out. Identity comes from the QR's signed payload —
+    never from request.user, since the account logged in on this device is
+    the kiosk operator's, not the volunteer's."""
+    permission_classes = [IsAdminUser]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "meal_scan"
+
+    def post(self, request):
+        token = request.data.get("token", "")
+        session, volunteer, error = _decode_meal_scan(token)
+        if error:
+            return error
+
+        ip = request.META.get("REMOTE_ADDR")
+
+        with transaction.atomic():
+            record, created = MealCheckIn.objects.select_for_update().get_or_create(
+                session=session,
+                volunteer=volunteer.user,
+                defaults={
+                    "assigned_role": _snapshot_role(volunteer.user),
+                    "shift_timing": _snapshot_shift(volunteer.user),
+                    "status": "checked_in",
+                    "check_in_time": timezone.now(),
+                    "device_ip": ip,
+                },
+            )
+            if not created:
+                if record.status == "checked_in":
+                    record.status = "checked_out"
+                    record.check_out_time = timezone.now()
+                else:
+                    record.status = "checked_in"
+                    record.check_in_time = timezone.now()
+                    record.check_out_time = None
+                record.scan_count += 1
+                record.device_ip = ip
+                record.save(update_fields=["status", "check_in_time", "check_out_time", "scan_count", "device_ip", "updated_at"])
+
+        return Response(MealCheckInSerializer(record).data, status=200)
+
+    def get(self, request):
+        """Read-only peek: given a scanned token, report what the *next* scan
+        would do (check in vs check out) without writing anything to the DB.
+        Lets the kiosk UI label its confirm state correctly ("Check In" vs
+        "Check Out") before committing. Same token validation as post(), just
+        no MealCheckIn is created/updated here."""
+        token = request.query_params.get("token", "")
+        session, volunteer, error = _decode_meal_scan(token)
+        if error:
+            return error
+
+        existing = MealCheckIn.objects.filter(session=session, volunteer=volunteer.user).first()
+        if not existing or existing.status == "checked_out":
+            next_action = "checked_in"
+        else:
+            next_action = "checked_out"
+
+        return Response({
+            "session_id": session.id,
+            "location": session.location,
+            "volunteer_name": volunteer.name,
+            "volunteer_code": volunteer.volunteer_code,
+            "next_action": next_action,  # "checked_in" | "checked_out"
+        })
+
+
+class MealSelfScanView(APIView):
+    """Volunteer-facing self-scan: the volunteer scans the *gate* QR that the
+    admin's kiosk device displays (the plain session-level token from the
+    `token` action) with their own phone camera. Identity comes from
+    request.user this time — the token only proves which session/time-window
+    this is, not who's scanning it — so this checks the *logged-in
+    volunteer* in/out, unlike MealScanView which checks in whoever the QR
+    payload identifies."""
+    permission_classes = [IsAuthenticated]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "meal_scan"
+
+    def post(self, request):
+        token = request.data.get("token", "")
+        if not token:
+            return Response({"detail": "Missing token."}, status=400)
+
+        try:
+            raw = base64.urlsafe_b64decode(token.encode()).decode()
+            session_id = int(raw.split(":")[0])
+        except Exception:
+            return Response({"detail": "Invalid QR code."}, status=400)
+
+        try:
+            session = MealSession.objects.get(id=session_id)
+        except MealSession.DoesNotExist:
+            return Response({"detail": "Invalid QR code."}, status=400)
+
+        if not session.verify_token(token):
+            return Response(
+                {"detail": "This QR code has expired. Ask the gate to refresh it and rescan."}, status=400
+            )
+
+        if not session.is_open():
+            return Response({"detail": "This meal session is not currently open."}, status=400)
+
+        vol = getattr(request.user, "volunteer_profile_v2", None)
+        if not vol or not (vol.is_volunteer and vol.status == Volunteer.Status.ADMIN_APPROVED):
+            return Response({"detail": "No approved volunteer profile found for this account."}, status=403)
+
+        ip = request.META.get("REMOTE_ADDR")
+
+        with transaction.atomic():
+            record, created = MealCheckIn.objects.select_for_update().get_or_create(
+                session=session,
+                volunteer=request.user,
+                defaults={
+                    "assigned_role": _snapshot_role(request.user),
+                    "shift_timing": _snapshot_shift(request.user),
+                    "status": "checked_in",
+                    "check_in_time": timezone.now(),
+                    "device_ip": ip,
+                },
+            )
+            if not created:
+                if record.status == "checked_in":
+                    record.status = "checked_out"
+                    record.check_out_time = timezone.now()
+                else:
+                    record.status = "checked_in"
+                    record.check_in_time = timezone.now()
+                    record.check_out_time = None
+                record.scan_count += 1
+                record.device_ip = ip
+                record.save(update_fields=["status", "check_in_time", "check_out_time", "scan_count", "device_ip", "updated_at"])
+
+        return Response(MealCheckInSerializer(record).data, status=200)
+
+
+def _snapshot_role(user):
+    vol = getattr(user, "volunteer_profile_v2", None)
+    return getattr(vol, "assigned_role", "") if vol else ""
+
+
+def _snapshot_shift(user):
+    # Best-effort: pull today's duty time as the "shift".
+    vol = getattr(user, "volunteer_profile_v2", None)
+    if not vol:
+        return ""
+    from .models import Duty
+    today_duty = Duty.objects.filter(volunteer=vol, duty_date=timezone.localdate()).order_by("time").first()
+    if today_duty and today_duty.time:
+        return today_duty.time.strftime("%H:%M")
+    return ""
+
+
+class MealStatsView(APIView):
+    """Admin analytics: how many times each volunteer scanned, broken down by zone/location."""
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        rows = (
+            MealCheckIn.objects.values("volunteer__full_name", "volunteer_id", "session__location")
+            .annotate(scans=Count("id"))
+            .order_by("volunteer__full_name")
+        )
+        by_volunteer = {}
+        for r in rows:
+            key = r["volunteer_id"]
+            entry = by_volunteer.setdefault(key, {
+                "volunteer_id": key,
+                "volunteer_name": r["volunteer__full_name"],
+                "total_scans": 0,
+                "by_location": {},
+            })
+            entry["total_scans"] += r["scans"]
+            entry["by_location"][r["session__location"]] = r["scans"]
+
+        return Response(list(by_volunteer.values()))
 
 
 class IsApprovedVolunteer(permissions.BasePermission):
@@ -309,7 +603,11 @@ class DutyViewSet(viewsets.ModelViewSet):
         vol = getattr(user, "volunteer_profile_v2", None)
         if not vol:
             return qs.none()
-        return qs.filter(volunteer=vol)
+        # Include duties assigned to me, PLUS duties someone else wants to
+        # swap onto me — otherwise the target volunteer can never see or
+        # respond to (accept/decline) an incoming swap request.
+        from django.db.models import Q
+        return qs.filter(Q(volunteer=vol) | Q(swap_requested_with=vol))
 
     def perform_create(self, serializer):
         duty = serializer.save(created_by=self.request.user)
@@ -337,11 +635,28 @@ class DutyViewSet(viewsets.ModelViewSet):
 
         return Response(DutySerializer(created, many=True).data, status=201)
 
+    # -------- Volunteer: accept a newly assigned duty --------
+    @action(detail=True, methods=["post"], url_path="accept", permission_classes=[permissions.IsAuthenticated])
+    def accept(self, request, pk=None):
+        duty = self.get_object()
+        me = getattr(request.user, "volunteer_profile_v2", None)
+        if not me or duty.volunteer_id != me.id:
+            return Response({"detail": "This duty is not assigned to you."}, status=403)
+        if duty.status != Duty.Status.ASSIGNED:
+            return Response({"detail": "Only newly assigned duties can be accepted."}, status=400)
+        duty.status = Duty.Status.ACCEPTED
+        duty.accepted_at = timezone.now()
+        duty.save(update_fields=["status", "accepted_at", "updated_at"])
+        notify_duty_accepted(duty)
+        return Response(DutySerializer(duty).data)
+
     @action(detail=True, methods=["post"], url_path="start", permission_classes=[permissions.IsAuthenticated])
     def start(self, request, pk=None):
         duty = self.get_object()
         if duty.status == Duty.Status.COMPLETED:
             return Response({"detail": "This duty is already completed."}, status=400)
+        if duty.status == Duty.Status.ASSIGNED:
+            return Response({"detail": "Accept this duty before starting it."}, status=400)
         duty.status = Duty.Status.IN_PROGRESS
         duty.started_at = duty.started_at or timezone.now()
         duty.save(update_fields=["status", "started_at", "updated_at"])
@@ -413,7 +728,8 @@ class DutyViewSet(viewsets.ModelViewSet):
 
         if act == "accept":
             duty.volunteer = target_volunteer
-            duty.status = Duty.Status.ASSIGNED
+            duty.status = Duty.Status.ACCEPTED
+            duty.accepted_at = timezone.now()
             duty.started_at = None
             duty.completed_at = None
             duty.help_note = ""
@@ -421,7 +737,7 @@ class DutyViewSet(viewsets.ModelViewSet):
             duty.swap_requested_at = None
             duty.pre_swap_status = None
             duty.save(update_fields=[
-                "volunteer", "status", "started_at", "completed_at", "help_note",
+                "volunteer", "status", "accepted_at", "started_at", "completed_at", "help_note",
                 "swap_requested_with", "swap_requested_at", "pre_swap_status", "updated_at",
             ])
         else:

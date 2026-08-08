@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   Image, FileText, Newspaper, Video, HelpCircle, Search, Bell,
 } from "lucide-react";
@@ -8,9 +9,12 @@ import { TempleInfoPanel } from "@/components/cms/temple-info";
 import { GalleryPanel } from "@/components/cms/gallery-panel";
 import { FAQPanel } from "@/components/cms/faq-panel";
 import { NewsPanel } from "@/components/cms/news-panel";
+import { VideoPanel } from "@/components/cms/video-panel";
 import { useGalleryItems } from "@/hooks/use-gallery-items";
 import { useFaqItems } from "@/hooks/use-faq-items";
 import { useNewsPosts } from "@/hooks/use-news-posts";
+import { useVideoItems } from "@/hooks/use-video-items";
+import { getAnnouncements } from "@/api/announcements"; // ← import the same API
 
 export const Route = createFileRoute("/admin/cms")({
   head: () => ({ meta: [{ title: "Content Management System — Sansthan Console" }] }),
@@ -34,6 +38,7 @@ function CmsDashboard() {
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [faqOpen, setFaqOpen] = useState(false);
   const [newsOpen, setNewsOpen] = useState(false);
+  const [videosOpen, setVideosOpen] = useState(false);
 
   const {
     items: galleryItems,
@@ -61,13 +66,27 @@ function CmsDashboard() {
     removeItems: removeNewsItems,
   } = useNewsPosts();
 
-  // ✅ FAQ stat card removed – News & Blogs is now dynamic off newsItems.length
+  const {
+    items: videoItems,
+    isLoading: videoLoading,
+    error: videoError,
+    addItem: addVideoItem,
+    removeItems: removeVideoItems,
+  } = useVideoItems();
+
+  // 🔔 Dynamic notification count – shares cache with AnnouncementComposer
+  const { data: announcements } = useQuery({
+    queryKey: ["announcements"],
+    queryFn: getAnnouncements,
+    // optional: staleTime to avoid refetching too often
+    staleTime: 60_000,
+  });
+
   const stats = [
     { label: "Hero Banner", value: 3, icon: Image },
     { label: "Temple Info", value: 1, icon: FileText },
     { label: "News & Blogs", value: newsItems.length, icon: Newspaper },
     { label: "Gallery", value: galleryItems.length, icon: Image },
-    // FAQ stat card is removed – no longer appears in the top row
   ];
 
   const modules: Module[] = [
@@ -93,16 +112,29 @@ function CmsDashboard() {
       icon: Image,
       onManage: () => setGalleryOpen(true),
     },
-    { key: "videos", label: "Videos", count: 82, icon: Video, onManage: () => {} },
+    {
+      key: "videos",
+      label: "Videos",
+      count: videoItems.length,
+      icon: Video,
+      onManage: () => setVideosOpen(true),
+    },
     {
       key: "faqs",
       label: "FAQs",
-      count: faqItems.length,  // ✅ stays dynamic
+      count: faqItems.length,
       icon: HelpCircle,
       onManage: () => setFaqOpen(true),
     },
     { key: "seo", label: "SEO", count: 16, icon: Search, onManage: () => {} },
-    { key: "notifications", label: "Notification", count: 22, icon: Bell, onManage: () => setComposerOpen(true) },
+    // ✅ Now dynamic – uses the actual announcement count
+    {
+      key: "notifications",
+      label: "Notification",
+      count: announcements?.length ?? 0,
+      icon: Bell,
+      onManage: () => setComposerOpen(true),
+    },
   ];
 
   return (
@@ -115,7 +147,7 @@ function CmsDashboard() {
       </p>
       <div className="mt-6 border-b border-border" />
 
-      {/* Stat cards – now only 4 */}
+      {/* Stat cards */}
       <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
         {stats.map((s) => (
           <div key={s.label} className="rounded-2xl border border-border bg-white p-5 shadow-sm">
@@ -145,7 +177,7 @@ function CmsDashboard() {
         ))}
       </div>
 
-      {/* Module grid – FAQ module card is still here, dynamic */}
+      {/* Module grid */}
       {tab === "modules" && (
         <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {modules.map((m) => (
@@ -166,8 +198,7 @@ function CmsDashboard() {
         </div>
       )}
 
-      {/* News tab now opens the same NewsPanel used by the module card,
-          instead of a static placeholder. */}
+      {/* News tab */}
       {tab === "news" && (
         <div className="mt-6 rounded-2xl border border-border bg-white p-8 text-center text-sm text-muted-foreground">
           <p>{newsItems.length} post{newsItems.length === 1 ? "" : "s"} in News & Blogs.</p>
@@ -216,6 +247,15 @@ function CmsDashboard() {
         addItem={addNewsItem}
         updateItem={updateNewsItem}
         removeItems={removeNewsItems}
+      />
+      <VideoPanel
+        open={videosOpen}
+        onClose={() => setVideosOpen(false)}
+        items={videoItems}
+        isLoading={videoLoading}
+        error={videoError}
+        addItem={addVideoItem}
+        removeItems={removeVideoItems}
       />
     </div>
   );

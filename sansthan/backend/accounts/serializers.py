@@ -11,10 +11,20 @@ User = get_user_model()
 class UserSerializer(serializers.ModelSerializer):
     """Read-only representation of the logged-in user, returned after auth."""
 
+    # NEW — the logged-in user's own Volunteer row id (not the User id), so
+    # the frontend can pre-select "Referred by Volunteer" on the walk-in
+    # entry form without an extra lookup. None for admins/devotees, or for
+    # a volunteer account that somehow has no linked Volunteer row.
+    volunteer_id = serializers.SerializerMethodField()
+
     class Meta:
         model = User
-        fields = ["id", "username", "email", "full_name", "user_type", "phone", "date_joined", "is_staff"]
+        fields = ["id", "username", "email", "full_name", "user_type", "phone", "date_joined", "is_staff", "volunteer_id"]
         read_only_fields = fields
+
+    def get_volunteer_id(self, obj):
+        volunteer = getattr(obj, "volunteer_profile_v2", None)
+        return volunteer.id if volunteer else None
 
 
 class BaseSignupSerializer(serializers.ModelSerializer):
@@ -176,6 +186,35 @@ class ForgotPasswordRequestSerializer(serializers.Serializer):
 
 class ResetPasswordSerializer(serializers.Serializer):
     email = serializers.EmailField()
+    new_password = serializers.CharField(validators=[validate_password])
+    confirm_password = serializers.CharField()
+
+    def validate(self, attrs):
+        if attrs["new_password"] != attrs["confirm_password"]:
+            raise serializers.ValidationError({"confirm_password": "Passwords do not match."})
+        return attrs
+
+
+# ---------------------------------------------------------------------------
+# OTP-based forgot-password flow (replaces the plain email-only flow above).
+# Kept ForgotPasswordRequestSerializer / ResetPasswordSerializer untouched
+# above in case anything else still points at them — safe to delete once
+# your views/urls are fully switched over to the OTP endpoints below.
+# ---------------------------------------------------------------------------
+
+
+class ForgotPasswordSendOTPSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+
+class ForgotPasswordVerifyOTPSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    otp = serializers.RegexField(regex=r"^\d{6}$", error_messages={"invalid": "Invalid OTP."})
+
+
+class ForgotPasswordResetSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    reset_token = serializers.CharField()
     new_password = serializers.CharField(validators=[validate_password])
     confirm_password = serializers.CharField()
 
